@@ -1,0 +1,84 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/db';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeyforwebshopphatstorestyle123';
+
+async function verifyAdmin(request) {
+  const token = request.cookies.get('token')?.value;
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'ADMIN') return null;
+    return decoded;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function GET(request) {
+  try {
+    const subcategories = await prisma.subcategory.findMany({
+      orderBy: { name: 'asc' }
+    });
+    return NextResponse.json(subcategories);
+  } catch (error) {
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลหมวดหมู่ย่อย' }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'ไม่ได้รับอนุญาตให้เข้าถึง' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json();
+    const { name, image, categoryId } = body;
+
+    if (!name || !categoryId) {
+      return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
+    }
+
+    const newSubcategory = await prisma.subcategory.create({
+      data: {
+        name,
+        image: image || 'https://img.rdcw.co.th/images/cebd465433a2364d61bd4b7c8bd36e831b04e1ea0c86a752f66f4e686f81b5d5.jpeg',
+        categoryId
+      }
+    });
+
+    console.log(`[ADMIN CREATED SUBCATEGORY] แอดมินได้เพิ่มหมวดหมู่ย่อยใหม่: "${newSubcategory.name}"`);
+    return NextResponse.json({ success: true, subcategory: newSubcategory });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการสร้างหมวดหมู่ย่อย' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'ไม่ได้รับอนุญาตให้เข้าถึง' }, { status: 403 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'กรุณาระบุรหัสหมวดหมู่ย่อย' }, { status: 400 });
+    }
+
+    await prisma.subcategory.delete({
+      where: { id }
+    });
+
+    console.log(`[ADMIN DELETED SUBCATEGORY] แอดมินได้ลบหมวดหมู่ย่อย ID: ${id}`);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลบหมวดหมู่ย่อย' }, { status: 500 });
+  }
+}

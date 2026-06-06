@@ -1,0 +1,85 @@
+Created At: 2026-06-05T11:44:50Z
+Completed At: 2026-06-05T11:45:20Z
+
+				The command completed successfully.
+				Output:
+				Connecting to database at: D:\mymuayy\prisma\dev.db
+--- Categories ---
+[
+  {
+    id: 'cmpzl997z0002u0vf0w5xv977',
+    name: 'รวม NETFLIX',
+    image: 'https://img.rdcw.co.th/images/cebd465433a2364d61bd4b7c8bd36e831b04e1ea0c86a752f66f4e686f81b5d5.jpeg'
+  },
+  {
+    id: 'cmpzl99810003u0vfxfnz14k5',
+    name: 'Disney plus',
+    image: 'https://img.rdcw.co.th/images/5d171ac1ae30f0734bc86828ea3f382cba40cc13c7754a40d2ceab971c9da023.jpg'
+  },
+  {
+    id: 'cmpzl99850004u0vfejfouidp',
+    name: 'รวม APP PREMIUM',
+    image: 'https://img.rdcw.co.th/images/8360fc53760d0ea6123b4c2ead12a094e55d733479e53f38d8da66b8bbdca6b1.jpeg'
+  },
+  {
+    id: 'cmpzl99880005u0vfc5o3lnme',
+    name: 'เติมเกม & บัตรเติมเงิน',
+    image: 'https://img.rdcw.co.th/images/62ad809c841b6894ceee914b827c29ab2dc67a719fea1fd6daa0ac14da6bc42e.png'
+  },
+  {
+    id: 'rov_cat',
+    name: 'Garena ROV',
+    image: 'https://play-lh.googleusercontent.com/Uezg8ZC7krrxV1VfE03Mahzr174mlPoYQBraGypDXeGamJZszE0kZ_Jl0CtpwQELYWe9fw4M55Tqiucpm0tzi7E=w240-h240'
+  },
+  {
+    id: 'freefire_cat',
+    name: 'Free Fire',
+    image: 'https://play-lh.googleusercontent.com/pXooT00frDwY1CVPeN_Qiz1R4_UyHqhjdXQgP1-e8bf7VUGtYIly6K0R0p39jeoD80Yu3dPg7hqO4hi4oUVz=w240-h240'
+  },
+  {
+    id: 'undawn_cat',
+    name: 'Garena Undawn',
+    image: 'https://play-lh.googleusercontent.com/CED_RfFmarZ82aT0AAJzIw1e7v54ZxjBksdpzDpwiGCa7UQj7IVgFtGoxTBFvXwh4No=w240-h240'
+  },
+  {
+    id: 'codm_cat',
+    name: 'Call of Duty Mobile',
+    image: 'https://play-lh.googleusercontent.com/qbOiSlyprOTjbV2_VrOrlhsxeSmxuNW1Ug0-BQglEdEh6hfZOUxg2FcxUCW9AXMwCxybgEBtyVAJY0ZUaM87=w240-h240'
+  },
+  {
+    id: 'deltaforce_cat',
+    name: 'Delta Force',
+    image: 'https://play-lh.googleusercontent.com/oLgL7u-F5_q_gdqiPgtQbEZZk-0Mmn6fGP15VbwHiNO3lIcpsc_RzDYhUG8XynBxltU=w240-h240'
+  },
+  {
+    id: 'haikyu_cat',
+    name: 'Haikyu Fly High',
+    image
+<truncated 3050 bytes>
+0 Coins | Price: 39 | CategoryId: deltaforce_cat | Stock: 0
+ID: df_300 | Name: 300 Coins | Price: 189 | CategoryId: deltaforce_cat | Stock: 0
+ID: df_980 | Name: 980 Coins | Price: 569 | CategoryId: deltaforce_cat | Stock: 0
+ID: df_1980 | Name: 1,980 Coins | Price: 1099 | CategoryId: deltaforce_cat | Stock: 0
+ID: hq_60 | Name: 60 Tokens | Price: 39 | CategoryId: haikyu_cat | Stock: 0
+ID: hq_300 | Name: 300 Tokens | Price: 189 | CategoryId: haikyu_cat | Stock: 0
+ID: hq_980 | Name: 980 Tokens | Price: 569 | CategoryId: haikyu_cat | Stock: 0
+ID: hq_1980 | Name: 1,980 Tokens | Price: 1099 | CategoryId: haikyu_cat | Stock: 0
+ID: pubg_60 | Name: 60 UC | Price: 39 | CategoryId: pubg_cat | Stock: 0
+ID: pubg_325 | Name: 325 UC | Price: 189 | CategoryId: pubg_cat | Stock: 0
+ID: pubg_660 | Name: 660 UC | Price: 369 | CategoryId: pubg_cat | Stock: 0
+ID: pubg_1800 | Name: 1,800 UC | Price: 919 | CategoryId: pubg_cat | Stock: 0
+ID: pubg_3850 | Name: 3,850 UC | Price: 1819 | CategoryId: pubg_cat | Stock: 0
+ID: ml_50 | Name: 50 Diamonds | Price: 39 | CategoryId: mlbb_cat | Stock: 0
+ID: ml_150 | Name: 150 Diamonds | Price: 109 | CategoryId: mlbb_cat | Stock: 0
+ID: ml_500 | Name: 500 Diamonds | Price: 369 | CategoryId: mlbb_cat | Stock: 0
+ID: ml_1000 | Name: 1,000 Diamonds | Price: 729 | CategoryId: mlbb_cat | Stock: 0
+ID: val_375 | Name: 375 VP | Price: 129 | CategoryId: valorant_cat | Stock: 0
+ID: val_750 | Name: 750 VP | Price: 249 | CategoryId: valorant_cat | Stock: 0
+ID: val_1650 | Name: 1,650 VP | Price: 519 | CategoryId: valorant_cat | Stock: 0
+ID: val_2850 | Name: 2,850 VP | Price: 879 | CategoryId: valorant_cat | Stock: 0
+ID: val_5800 | Name: 5,800 VP | Price: 1729 | CategoryId: valorant_cat | Stock: 0
+ID: ht_60 | Name: 60 Coins | Price: 39 | CategoryId: heartopia_cat | Stock: 0
+ID: ht_300 | Name: 300 Coins | Price: 189 | CategoryId: heartopia_cat | Stock: 0
+ID: ht_980 | Name: 980 Coins | Price: 569 | CategoryId: heartopia_cat | Stock: 0
+ID: ht_1980 | Name: 1,980 Coins | Price: 1099 | CategoryId: heartopia_cat | Stock: 0
+

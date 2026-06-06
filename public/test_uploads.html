@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Uploaded Images - mymuayy</title>
+  <style>
+    body {
+      background-color: #0b1315;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 2rem;
+      margin: 0;
+    }
+    h1 {
+      color: #4ba3b1;
+      border-bottom: 2px solid #1a2c31;
+      padding-bottom: 1rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-cols: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+    .card {
+      background-color: #111d21;
+      border: 1px solid #1a2c31;
+      border-radius: 1rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .card:hover {
+      border-color: #4ba3b1;
+    }
+    .image-container {
+      width: 100%;
+      height: 200px;
+      background-color: #0a1012;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .info {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .filename {
+      font-weight: bold;
+      color: #ffffff;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>คลังรูปภาพที่อัปโหลดทั้งหมด (Uploaded Images)</h1>
+  <p>คุณสามารถเปิดไฟล์นี้ในเบราว์เซอร์เพื่อดูว่ารูปไหนคือรูปอะไรครับ</p>
+  
+  <div class="grid" id="image-grid"></div>
+
+  <script>
+    // List of uploaded files and their sizes
+    const images = [
+      { name: "1780634295010-q3pqvj5.jpg", size: "1774x887", bytes: "103KB" },
+      { name: "1780637354041-r72s6vf.png", size: "1448x1086", bytes: "1.8MB" },
+      { name: "1780637358560-e9gs6dw.jpeg", size: "1536x768", bytes: "385KB" },
+      { name: "1780637534669-gfahdoi.png", size: "2172x724", bytes: "1.6MB" },
+      { name: "1780637550147-1z9lm4u.png", size: "2172x724", bytes: "1.7MB" },
+      { name: "1780637632168-emndu00.png", size: "1200x400", bytes: "578KB" },
+      { name: "1780637686101-qqnj3uq.png", size: "1500x500", bytes: "806KB" },
+      { name: "1780637746848-idxun5n.png", size: "1599x533", bytes: "873KB" },
+      { name: "1780637803156-d84tnlz.png", size: "1700x567", bytes: "947KB" },
+      { name: "1780637954782-lqhx12o.png", size: "1200x400", bytes: "578KB" },
+      { name: "1780638055297-xmcstrh.png", size: "2172x724", bytes: "1.7MB" },
+      { name: "1780638080179-93k8614.png", size: "1448x1086", bytes: "1.8MB" },
+      { name: "1780638194737-b7ekfy8.jpeg", size: "1536x768", bytes: "385KB" },
+      { name: "1780638545044-yeog9yg.png", size: "800x600", bytes: "671KB", role: "Card 1 (ห้องแชท)" },
+      { name: "1780638831141-o1amqix.png", size: "800x600", bytes: "762KB", role: "Card 2 (สมัครตัวแทน)" },
+      { name: "1780639787777-e47zsdy.png", size: "1024x1024", bytes: "356KB" },
+      { name: "1780653446555-cexw4cl.png", size: "1448x1086", bytes: "2.7MB", role: "Card 3 (ระบบรับ OTP)" },
+      { name: "1780654023902-lvzn63x.png", size: "1448x1086", bytes: "1.76MB", role: "Card 4 (เติมเกม)" },
+      { name: "1780655933586-xagqi6k.png", size: "1448x1086", bytes: "1.76MB" },
+      { name: "1780656180605-wjhuszy.png", size: "1448x1086", bytes: "1.76MB" }
+    ];
+
+    const grid = document.getElementById('image-grid');
+    images.forEach(img => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      
+      card.innerHTML = `
+        <div class="image-container">
+          <img src="/uploads/\${img.name}" alt="\${img.name}">
+        </div>
+        <div>
+          <div class="filename">/uploads/\${img.name}</div>
+          <div class="info">ขนาด: \${img.size} | ขนาดไฟล์: \${img.bytes}</div>
+          \${img.role ? `<div style="margin-top: 0.5rem; color: #4ba3b1; font-weight: bold; font-size: 0.85rem;">ตำแหน่งเดิม: \${img.role}</div>` : ''}
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

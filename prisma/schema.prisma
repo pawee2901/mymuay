@@ -1,0 +1,198 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String               @id @default(cuid())
+  username  String               @unique
+  password  String
+  role      String               @default("USER") // "USER" or "ADMIN"
+  balance   Float                @default(0.0)
+  createdAt DateTime             @default(now())
+  orders    Order[]
+  deposits  DepositTransaction[]
+  slipVerifications SlipVerification[]
+}
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  image         String?
+  products      Product[]
+  subcategories Subcategory[]
+}
+
+model Subcategory {
+  id         String    @id @default(cuid())
+  name       String
+  image      String?
+  categoryId String
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products   Product[]
+}
+
+model Product {
+  id            String         @id @default(cuid())
+  name          String
+  description   String
+  price         Float
+  image         String
+  type          String         @default("ACCOUNT") // "ACCOUNT" (digital code/account) or "TOPUP" (game ref ID)
+  categoryId    String
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subCategoryId String?
+  subCategory   Subcategory?   @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+  stockItems    StockItem[]
+  orders        Order[]
+  options       ProductOption[]
+  createdAt     DateTime       @default(now())
+}
+
+model StockItem {
+  id              String         @id @default(cuid())
+  productId       String
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productOptionId String?
+  productOption   ProductOption? @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
+  content         String         // e.g. "email:password" or "PIN-123-456"
+  isUsed          Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  usedAt          DateTime?
+  orderId         String?        @unique
+  order           Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
+}
+
+model Order {
+  id              String         @id @default(cuid())
+  userId          String?
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  productId       String
+  product         Product        @relation(fields: [productId], references: [id])
+  productOptionId String?
+  productOption   ProductOption? @relation(fields: [productOptionId], references: [id], onDelete: SetNull)
+  targetId        String?        // e.g. Game UID or character reference
+  quantity        Int            @default(1)
+  price           Float
+  totalPrice      Float
+  status          String         @default("PENDING") // "PENDING", "COMPLETED", "FAILED"
+  content         String?        // Delivered codes/accounts (e.g. "user:pass")
+  createdAt       DateTime       @default(now())
+  expiresAt       DateTime?      // expiration date for tracking subscription renewals
+  stockItem       StockItem?
+}
+
+model ProductOption {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  price      Float
+  stockItems StockItem[]
+  orders     Order[]
+  createdAt  DateTime    @default(now())
+}
+
+model CtaCard {
+  id          String @id
+  title       String
+  description String
+  imageUrl    String
+  linkUrl     String
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  username  String
+  userId    String?  // The user ID of the sender or topic owner (for support tickets)
+  message   String
+  type      String   @default("GROUP") // "GROUP" (public group chat) or "SUPPORT" (private user-admin chat)
+  isAdmin   Boolean  @default(false)   // Whether the message is sent by an admin
+  mediaUrl  String?
+  mediaType String?  // "IMAGE" or "VIDEO"
+  createdAt DateTime @default(now())
+}
+
+model DepositSetting {
+  id                     String @id @default("default")
+  bankName               String
+  accountNumber          String
+  accountName            String
+  qrImageUrl             String
+  bankLogoUrl            String @default("")
+  lineNotifyToken        String @default("")
+  lineChannelAccessToken String @default("")
+  lineAdminUserId        String @default("")
+  slipOkApiKey           String @default("")
+  slipOkBranchId         String @default("")
+}
+
+model CarouselSlide {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  badge       String
+  iconName    String   @default("Sparkles") // "Sparkles", "Flame", "ShieldCheck"
+  bgGradient  String   @default("from-slate-900 to-indigo-950")
+  btnText     String   @default("เลือกซื้อแอปพรีเมียม")
+  image       String
+  slideType   String   @default("STANDARD") // "STANDARD" or "FULL_MEDIA"
+  linkUrl     String   @default("") // Click redirection link
+  createdAt   DateTime @default(now())
+}
+
+model DepositTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Float
+  status    String   @default("COMPLETED") // "COMPLETED"
+  createdAt DateTime @default(now())
+}
+
+model SiteSetting {
+  id        String @id @default("default")
+  storeName String @default("mymuayy")
+  logoUrl   String @default("")
+}
+
+model SlipVerification {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transRef      String   @unique
+  amount        Float
+  sendingBank   String?
+  senderName    String?
+  transDatetime String?
+  createdAt     DateTime @default(now())
+}
+
+model EmailImapSetting {
+  id        String   @id @default(cuid())
+  domain    String   @unique // e.g. "lico.moe" (catch-all) or "user@hotmail.com" (specific)
+  host      String
+  port      Int      @default(993)
+  tls       Boolean  @default(true)
+  user      String
+  password  String
+  appId     String?  // The specific App ID this email is locked to (e.g. "chatgpt", "netflix")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model OtpApp {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  senderEmails String   // e.g. "noreply@openai.com, info@netflix.com"
+  regexPattern String?  // Regex to extract OTP code
+  logoUrl      String?  // App Logo
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
