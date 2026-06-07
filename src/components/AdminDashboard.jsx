@@ -468,6 +468,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
   // Add Stock Form
   const [selectedProdId, setSelectedProdId] = useState(products[0]?.id || '');
   const [stockLines, setStockLines] = useState('');
+  const [isMultiLineStock, setIsMultiLineStock] = useState(false);
 
   // Auto-select first option when product selection changes in stock replenishment
   useEffect(() => {
@@ -1034,7 +1035,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
         body: JSON.stringify({
           productId: selectedProdId,
           productOptionId: selectedOptionIdForStock || null,
-          stockLines
+          stockLines,
+          isMultiLine: isMultiLineStock
         }),
       });
       const data = await res.json();
@@ -2116,13 +2118,30 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     );
                   })()}
 
+                  <div className="flex items-center gap-2 mb-1 select-none">
+                    <input 
+                      type="checkbox" 
+                      id="isMultiLineStock"
+                      checked={isMultiLineStock}
+                      onChange={(e) => setIsMultiLineStock(e.target.checked)}
+                      className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <label htmlFor="isMultiLineStock" className="text-[10px] font-bold text-slate-600 cursor-pointer">
+                      ป้อนสต๊อกแบบหลายบรรทัด (1 กล่องข้อความ = 1 สต๊อก)
+                    </label>
+                  </div>
+
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ป้อนรหัสคีย์สินค้า (วางทีละบรรทัด)</label>
-                    <p className="text-[9px] text-slate-400 mb-1 font-light">1 บรรทัดจะเท่ากับสต๊อกสินค้า 1 ชิ้น เช่น: email:password หรือ รหัสบัตร</p>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                      {isMultiLineStock ? 'ป้อนรายละเอียดคีย์สต๊อกแบบหลายบรรทัด (ทั้งหมดนี้จะนับเป็น 1 สต๊อก)' : 'ป้อนรหัสคีย์สินค้า (วางทีละบรรทัด)'}
+                    </label>
+                    <p className="text-[9px] text-slate-400 mb-1 font-light">
+                      {isMultiLineStock ? 'ข้อความทั้งหมดในกล่องจะถูกส่งให้ลูกค้าเป็น 1 รายการสั่งซื้อ' : '1 บรรทัดจะเท่ากับสต๊อกสินค้า 1 ชิ้น เช่น: email:password หรือ รหัสบัตร'}
+                    </p>
                     <textarea 
                       required
                       rows="8"
-                      placeholder="เช่น&#10;user1@netflix.com:pass123&#10;user2@netflix.com:pass456&#10;user3@netflix.com:pass789" 
+                      placeholder={isMultiLineStock ? "ตัวอย่างเช่น:&#10;อีเมล: client@test.com&#10;รหัสผ่าน: pass1234&#10;หมายเหตุ: ห้ามเปลี่ยนแปลงข้อมูลบัญชีเด็ดขาด" : "เช่น&#10;user1@netflix.com:pass123&#10;user2@netflix.com:pass456&#10;user3@netflix.com:pass789"} 
                       value={stockLines}
                       onChange={(e) => setStockLines(e.target.value)}
                       className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"

@@ -24,7 +24,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { productId, productOptionId, stockLines } = body;
+    const { productId, productOptionId, stockLines, isMultiLine } = body;
 
     if (!productId || !stockLines) {
       return NextResponse.json({ error: 'กรุณาระบุรหัสสินค้าและป้อนรหัสสต๊อก' }, { status: 400 });
@@ -46,11 +46,19 @@ export async function POST(request) {
       }
     }
 
-    // Parse lines
-    const lines = stockLines
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+    // Parse lines based on mode
+    let lines = [];
+    if (isMultiLine) {
+      const trimmed = stockLines.trim();
+      if (trimmed) {
+        lines = [trimmed];
+      }
+    } else {
+      lines = stockLines
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+    }
 
     if (lines.length === 0) {
       return NextResponse.json({ error: 'กรุณากรอกรหัสสต๊อกอย่างน้อย 1 รายการ' }, { status: 400 });
