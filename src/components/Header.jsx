@@ -32,6 +32,26 @@ export default function Header({ siteSetting }) {
     checkUser();
   }, [pathname]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+      async function checkUser() {
+        try {
+          const res = await fetch(`/api/auth/me?t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            setCurrentUser(data.user);
+          }
+        } catch (err) {
+          console.error('Auto check user failed:', err);
+        }
+      }
+      checkUser();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [router]);
+
   const handleLogout = async () => {
     try {
       const res = await fetch('/api/auth/logout', { method: 'POST' });
