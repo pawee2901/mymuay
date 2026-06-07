@@ -27,6 +27,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import EmailSettingsPanel from '@/components/EmailSettingsPanel';
+import Swal from 'sweetalert2';
 
 export default function AdminDashboard({ categories, subcategories = [], products, orders, users, adminUser, ctaCards, depositSetting, carouselSlides, siteSetting }) {
   const router = useRouter();
@@ -290,7 +291,17 @@ export default function AdminDashboard({ categories, subcategories = [], product
   };
 
   const handleDeleteCarouselSlide = async (slideId) => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบสไลด์แบนเนอร์นี้?')) return;
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบ',
+      text: 'คุณแน่ใจหรือไม่ที่จะลบสไลด์แบนเนอร์นี้?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#4f46e5',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     setIsLoading(true);
     setErrorMsg('');
     setSuccessMsg('');
@@ -461,7 +472,12 @@ export default function AdminDashboard({ categories, subcategories = [], product
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('กรุณาเลือกเฉพาะไฟล์รูปภาพเท่านั้น (เช่น png, jpg, jpeg, webp, gif)');
+      Swal.fire({
+        title: 'ไฟล์ไม่ถูกต้อง',
+        text: 'กรุณาเลือกเฉพาะไฟล์รูปภาพเท่านั้น (เช่น png, jpg, jpeg, webp, gif)',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
       return;
     }
 
@@ -503,7 +519,12 @@ export default function AdminDashboard({ categories, subcategories = [], product
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
-      alert('เกิดข้อผิดพลาดในการอัปโหลด: ' + err.message);
+      Swal.fire({
+        title: 'อัปโหลดล้มเหลว',
+        text: 'เกิดข้อผิดพลาดในการอัปโหลด: ' + err.message,
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
     } finally {
       setUploadingField(null);
       e.target.value = '';
@@ -592,9 +613,17 @@ export default function AdminDashboard({ categories, subcategories = [], product
   };
 
   const handleDeleteCategory = async (catId) => {
-    if (!confirm('คุณต้องการลบหมวดหมู่หลักนี้หรือไม่? ลบแล้วสินค้าและหมวดหมู่ย่อยทั้งหมดในหมวดหมู่นี้จะถูกลบไปด้วยแบบถาวร!')) {
-      return;
-    }
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบหมวดหมู่หลัก',
+      text: 'คุณต้องการลบหมวดหมู่หลักนี้หรือไม่? ลบแล้วสินค้าและหมวดหมู่ย่อยทั้งหมดในหมวดหมู่นี้จะถูกลบไปด้วยแบบถาวร!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     setErrorMsg('');
     setSuccessMsg('');
     setIsLoading(true);
@@ -656,9 +685,17 @@ export default function AdminDashboard({ categories, subcategories = [], product
   };
 
   const handleDeleteSubcategory = async (subcatId) => {
-    if (!confirm('คุณต้องการลบหมวดหมู่ย่อยนี้หรือไม่? สินค้าในหมวดหมู่ย่อยนี้จะถูกยกเลิกการผูกหมวดหมู่ย่อย')) {
-      return;
-    }
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบหมวดหมู่ย่อย',
+      text: 'คุณต้องการลบหมวดหมู่ย่อยนี้หรือไม่? สินค้าในหมวดหมู่ย่อยนี้จะถูกยกเลิกการผูกหมวดหมู่ย่อย',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     setErrorMsg('');
     setSuccessMsg('');
     setIsLoading(true);
@@ -722,9 +759,17 @@ export default function AdminDashboard({ categories, subcategories = [], product
   };
 
   const handleDeleteOption = async (optionId) => {
-    if (!confirm('คุณต้องการลบตัวเลือกสินค้านี้หรือไม่? สต๊อกสินค้าที่ผูกกับตัวเลือกนี้จะถูกย้ายเป็นไม่ผูกตัวเลือก หรือลบความสัมพันธ์')) {
-      return;
-    }
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบตัวเลือกสินค้า',
+      text: 'คุณต้องการลบตัวเลือกสินค้านี้หรือไม่? สต๊อกสินค้าที่ผูกกับตัวเลือกนี้จะถูกย้ายเป็นไม่ผูกตัวเลือก หรือลบความสัมพันธ์',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     setErrorMsg('');
     setSuccessMsg('');
     setIsLoading(true);
@@ -798,9 +843,17 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
   // Delete Product Action
   const handleDeleteProduct = async (prodId) => {
-    if (!confirm('คุณต้องการลบสินค้านี้ออกจากระบบจริงหรือไม่? การลบจะทำลายข้อมูลคีย์สต๊อกสินค้าที่เกี่ยวข้องทั้งหมด')) {
-      return;
-    }
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบสินค้า',
+      text: 'คุณต้องการลบสินค้านี้ออกจากระบบจริงหรือไม่? การลบจะทำลายข้อมูลคีย์สต๊อกสินค้าที่เกี่ยวข้องทั้งหมด',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     setErrorMsg('');
     setSuccessMsg('');
     setIsLoading(true);
@@ -867,12 +920,26 @@ export default function AdminDashboard({ categories, subcategories = [], product
     setSuccessMsg('');
 
     if (userId === adminUser.userId) {
-      alert('คุณไม่สามารถเปลี่ยนบทบาทของตัวเองได้!');
+      Swal.fire({
+        title: 'ดำเนินการไม่ได้',
+        text: 'คุณไม่สามารถเปลี่ยนบทบาทของตัวเองได้!',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
       return;
     }
 
-    const confirmChange = confirm(`คุณต้องการปรับยศผู้ใช้นี้เป็น "${newRole}" ใช่หรือไม่?`);
-    if (!confirmChange) return;
+    const result = await Swal.fire({
+      title: 'ยืนยันการปรับยศ',
+      text: `คุณต้องการปรับยศผู้ใช้นี้เป็น "${newRole}" ใช่หรือไม่?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#4f46e5',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, เปลี่ยนเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
 
     try {
       const res = await fetch('/api/users', {
@@ -1299,6 +1366,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         />
                       </label>
                     </div>
+                    <p className="text-[10px] text-indigo-500 font-medium mt-1">แนะนำ: อัตราส่วน 1:1 ทรงจัตุรัส (เช่น 500x500 พิกเซล)</p>
                     {newCatImage && (
                       <div className="mt-2 p-1.5 border border-slate-100 rounded-xl bg-slate-50/50 w-fit">
                         <span className="text-[9px] text-slate-400 font-bold block mb-1">ตัวอย่างรูปหมวดหมู่:</span>
@@ -1427,6 +1495,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         />
                       </label>
                     </div>
+                    <p className="text-[10px] text-blue-600 font-medium mt-1">แนะนำ: อัตราส่วน 1:1 ทรงจัตุรัส (เช่น 500x500 พิกเซล)</p>
                   </div>
                   <button 
                     type="submit" 
@@ -1571,6 +1640,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         />
                       </label>
                     </div>
+                    <p className="text-[10px] text-indigo-500 font-medium mt-1">แนะนำ: อัตราส่วน 1:1 ทรงจัตุรัส (เช่น 500x500 พิกเซล)</p>
                     {newProdImage && (
                       <div className="mt-2 p-1.5 border border-slate-100 rounded-xl bg-slate-50/50 w-fit">
                         <span className="text-[9px] text-slate-400 font-bold block mb-1">ตัวอย่างรูปสินค้า:</span>
@@ -2119,6 +2189,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                             />
                           </label>
                         </div>
+                        <p className="text-[9px] text-indigo-500 font-medium mt-1">แนะนำ: อัตราส่วน 3:1 ทรงสี่เหลี่ยมผืนผ้าแนวนอน (เช่น 1920x640 หรือ 1200x400 พิกเซล)</p>
                         {slide.image && (
                           <div className="mt-2 p-1.5 border border-slate-100 rounded-xl bg-slate-50/50 w-fit">
                             <span className="text-[8px] text-slate-400 font-bold block mb-1">ตัวอย่างไฟล์สื่อที่จะแสดงบนหน้าแรก:</span>
@@ -2227,6 +2298,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                             />
                           </label>
                         </div>
+                        <p className="text-[9px] text-indigo-500 font-medium mt-1">แนะนำ: อัตราส่วน 16:9 หรือ 4:3 (เช่น 800x450 หรือ 800x600 พิกเซล)</p>
                         {card.imageUrl && (
                           <div className="mt-2 p-1.5 border border-slate-100 rounded-xl bg-slate-50/50 w-fit">
                             <span className="text-[8px] text-slate-400 font-bold block mb-1">ตัวอย่างรูปกล่องแนะนำ:</span>
@@ -2337,6 +2409,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     />
                   </label>
                 </div>
+                <p className="text-[10px] text-indigo-500 font-medium mt-1">แนะนำ: อัตราส่วน 1:1 ทรงจัตุรัส (เช่น 500x500 พิกเซล)</p>
                 {depQrImageUrl && (
                   <div className="mt-2 p-2 border border-slate-100 rounded-xl bg-slate-50/50 w-fit">
                     <span className="text-[9px] text-slate-400 font-bold block mb-1">ตัวอย่างรูป QR Code:</span>
@@ -2377,6 +2450,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     />
                   </label>
                 </div>
+                <p className="text-[10px] text-indigo-500 font-medium mt-1">แนะนำ: ทรงจัตุรัสขนาดเล็ก (เช่น 100x100 พิกเซล)</p>
                 {depBankLogoUrl && (
                   <div className="mt-2 p-2 border border-slate-100 rounded-xl bg-slate-50/50 w-fit">
                     <span className="text-[9px] text-slate-400 font-bold block mb-1">ตัวอย่างรูปโลโก้ธนาคาร:</span>
@@ -2567,6 +2641,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                       />
                     </label>
                   </div>
+                  <p className="text-[10px] text-indigo-500 font-medium mt-1">แนะนำ: ขนาดจัตุรัสหรือกะทัดรัด (เช่น 200x200 พิกเซล)</p>
                   {siteLogoUrl && (
                     <div className="mt-3 p-2 border border-slate-100 rounded-xl bg-slate-50/50 w-fit">
                       <span className="text-[10px] text-slate-400 font-bold block mb-2">ตัวอย่างโลโก้ร้าน:</span>

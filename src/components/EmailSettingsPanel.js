@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, RefreshCw, Mail, Server, Eye, EyeOff, CheckCircle, XCircle, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 // IMAP presets for popular providers
 const IMAP_PRESETS = {
@@ -88,7 +89,17 @@ export default function EmailSettingsPanel() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('ลบการตั้งค่านี้?')) return;
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบ',
+      text: 'ต้องการลบการตั้งค่านี้ใช่หรือไม่?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
     await fetch('/api/admin/email-settings', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },

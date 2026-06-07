@@ -1,5 +1,6 @@
 import { Prompt, Inter } from "next/font/google";
 import "./globals.css";
+import 'sweetalert2/dist/sweetalert2.min.css';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { prisma } from "@/db";

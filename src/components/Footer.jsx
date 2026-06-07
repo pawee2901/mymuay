@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Mail, HelpCircle, Heart } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 export default function Footer({ siteSetting }) {
   const storeName = siteSetting?.storeName || 'mymuayy';
@@ -18,16 +19,22 @@ export default function Footer({ siteSetting }) {
           <span>Made with passion &</span>
           <Heart className="w-3 h-3 text-rose-500 fill-rose-500 animate-pulse" />
           <span>by</span>
-          <a href="#" className="hover:underline font-medium text-blue-600">{storeName}</a>
+          <span className="font-semibold text-slate-700 hover:text-blue-600 cursor-pointer">{storeName}</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <a href="mailto:support@mymuayy.com" className="hover:text-blue-600 transition-premium flex items-center gap-1.5">
             <Mail className="w-3.5 h-3.5" />
             ติดต่อเรา
           </a>
           <button
-            onClick={() => alert('หากพบปัญหาฉ้อโกงกรุณาติดต่อแอดมินโดยตรงที่ไลน์ทางการของเรา')}
+            onClick={() => Swal.fire({
+              title: 'รายงานปัญหา',
+              text: 'หากพบปัญหาฉ้อโกงกรุณาติดต่อแอดมินโดยตรงที่ไลน์ทางการของเรา',
+              icon: 'info',
+              confirmButtonColor: '#4f46e5',
+              confirmButtonText: 'ตกลง'
+            })}
             className="hover:text-blue-600 hover:underline transition-premium flex items-center gap-1.5 cursor-pointer bg-transparent border-0 p-0 text-xs font-sans text-slate-400"
           >
             <HelpCircle className="w-3.5 h-3.5" />

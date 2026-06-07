@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Lock, KeyRound, Save, ShoppingBag, Gamepad2, Smartphone, Coins, Loader2, CalendarClock, CreditCard, ChevronRight, Eye, Copy, Search, LogOut } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -42,7 +43,12 @@ export default function ProfilePage() {
       setUser(data.user);
     } catch (err) {
       console.error(err);
-      alert('เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์');
+      Swal.fire({
+        title: 'เกิดข้อผิดพลาด',
+        text: 'เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
     } finally {
       setLoading(false);
     }
@@ -51,7 +57,12 @@ export default function ProfilePage() {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      alert('รหัสผ่านไม่ตรงกัน กรุณายืนยันรหัสผ่านใหม่ให้ถูกต้อง');
+      Swal.fire({
+        title: 'รหัสผ่านไม่ตรงกัน',
+        text: 'กรุณายืนยันรหัสผ่านใหม่ให้ถูกต้อง',
+        icon: 'warning',
+        confirmButtonColor: '#4f46e5'
+      });
       return;
     }
 
@@ -66,7 +77,12 @@ export default function ProfilePage() {
       const data = await res.json();
       
       if (res.ok) {
-        alert('สำเร็จ: เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
+        Swal.fire({
+          title: 'สำเร็จ',
+          text: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว',
+          icon: 'success',
+          confirmButtonColor: '#4f46e5'
+        });
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -74,7 +90,12 @@ export default function ProfilePage() {
         throw new Error(data.error || 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
       }
     } catch (err) {
-      alert(`ผิดพลาด: ${err.message}`);
+      Swal.fire({
+        title: 'ผิดพลาด',
+        text: err.message,
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
     } finally {
       setIsChangingPassword(false);
     }
@@ -83,9 +104,20 @@ export default function ProfilePage() {
   const handleCopyContent = (text) => {
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
-      alert('คัดลอกข้อมูลเรียบร้อยแล้ว');
+      Swal.fire({
+        title: 'คัดลอกสำเร็จ',
+        text: 'คัดลอกข้อมูลเรียบร้อยแล้ว',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      });
     }).catch(() => {
-      alert('ไม่สามารถคัดลอกได้');
+      Swal.fire({
+        title: 'ผิดพลาด',
+        text: 'ไม่สามารถคัดลอกได้',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
     });
   };
 
@@ -323,7 +355,13 @@ export default function ProfilePage() {
                 onClick={() => {
                   const allContent = currentFilteredOrders.map(o => o.content).filter(Boolean).join('\n');
                   if (allContent) handleCopyContent(allContent);
-                  else alert('ไม่มีข้อมูลให้คัดลอก');
+                  else Swal.fire({
+                    title: 'ไม่มีข้อมูล',
+                    text: 'ไม่มีข้อมูลให้คัดลอก',
+                    icon: 'info',
+                    confirmButtonColor: '#4f46e5',
+                    confirmButtonText: 'ตกลง'
+                  });
                 }}
                 className="mt-3 flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors w-auto cursor-pointer"
               >

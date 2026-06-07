@@ -18,6 +18,7 @@ import {
   User,
   Inbox
 } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 export default function ProductView({ product }) {
   const router = useRouter();
@@ -72,12 +73,25 @@ export default function ProductView({ product }) {
   const handleCheckout = (e) => {
     e.preventDefault();
     if (!currentUser) {
-      alert('กรุณาเข้าสู่ระบบก่อนทำการซื้อสินค้าครับ');
-      router.push('/auth/signin');
+      Swal.fire({
+        title: 'กรุณาเข้าสู่ระบบ',
+        text: 'กรุณาเข้าสู่ระบบก่อนทำการซื้อสินค้าครับ',
+        icon: 'info',
+        confirmButtonColor: '#4f46e5',
+        confirmButtonText: 'ตกลง'
+      }).then(() => {
+        router.push('/auth/signin');
+      });
       return;
     }
     if (product.type === 'TOPUP' && !targetId.trim()) {
-      alert('กรุณากรอก Player ID / UID ของผู้เล่นก่อนทำการชำระเงิน');
+      Swal.fire({
+        title: 'ข้อมูลไม่ครบถ้วน',
+        text: 'กรุณากรอก Player ID / UID ของผู้เล่นก่อนทำการชำระเงิน',
+        icon: 'warning',
+        confirmButtonColor: '#4f46e5',
+        confirmButtonText: 'ตกลง'
+      });
       return;
     }
     setShowPaymentModal(true);
