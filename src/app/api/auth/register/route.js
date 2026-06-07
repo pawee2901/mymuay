@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/db';
+import { prisma, sendLineNotification } from '@/db';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
@@ -39,6 +39,10 @@ export async function POST(request) {
         role: 'USER', // Default role
       }
     });
+
+    // Send Line Notification to Admin
+    const lineMsg = `✨ มีสมาชิกสมัครเข้าใช้งานใหม่!\n\n👤 ชื่อผู้ใช้: ${user.username}\n🆔 รหัสผู้ใช้: ${user.id}\n📅 เวลาสมัคร: ${new Date(user.createdAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })} น.`;
+    sendLineNotification(lineMsg).catch(err => console.error('Error sending signup LINE notification:', err));
 
     return NextResponse.json({
       success: true,
