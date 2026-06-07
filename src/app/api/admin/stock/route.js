@@ -79,3 +79,93 @@ export async function POST(request) {
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการเติมสต๊อกสินค้า' }, { status: 500 });
   }
 }
+
+export async function GET(request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'ไม่ได้รับอนุญาตให้เข้าถึง' }, { status: 403 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const productId = searchParams.get('productId');
+    const productOptionId = searchParams.get('productOptionId');
+
+    if (!productId) {
+      return NextResponse.json({ error: 'กรุณาระบุรหัสสินค้า' }, { status: 400 });
+    }
+
+    const whereQuery = {
+      productId,
+      isUsed: false
+    };
+
+    if (productOptionId) {
+      whereQuery.productOptionId = productOptionId;
+    }
+
+    const stockItems = await prisma.stockItem.findMany({
+      where: whereQuery,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        content: true,
+        productOptionId: true,
+        createdAt: true
+      }
+    });
+
+    return NextResponse.json({ success: true, stockItems });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลสต๊อกสินค้า' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'ไม่ได้รับอนุญาตให้เข้าถึง' }, { status: 403 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const productId = searchParams.get('productId');
+    const productOptionId = searchParams.get('productOptionId');
+
+    if (id) {
+      // Delete a specific stock item
+      await prisma.stockItem.delete({
+        where: { id }
+      });
+      return NextResponse.json({ success: true, message: 'ลบรายการสต๊อกสำเร็จ' });
+    }
+
+    if (productId) {
+      // Delete all UNUSED stock items for a product
+      const deleteWhere = {
+        productId,
+        isUsed: false
+      };
+      
+      if (productOptionId) {
+        deleteWhere.productOptionId = productOptionId;
+      }
+      
+      const result = await prisma.stockItem.deleteMany({
+        where: deleteWhere
+      });
+      return NextResponse.json({ 
+        success: true, 
+        count: result.count, 
+        message: `ลบสต๊อกที่ยังไม่ได้ใช้งานทั้งหมดสำเร็จ (จำนวน ${result.count} รายการ)` 
+      });
+    }
+
+    return NextResponse.json({ error: 'กรุณาระบุรหัสสต๊อก หรือรหัสสินค้าที่ต้องการลบ' }, { status: 400 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลบรายการสต๊อก' }, { status: 500 });
+  }
+}

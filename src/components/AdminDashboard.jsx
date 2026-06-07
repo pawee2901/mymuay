@@ -24,7 +24,8 @@ import {
   X,
   Mail,
   Settings,
-  KeyRound
+  KeyRound,
+  List
 } from 'lucide-react';
 import EmailSettingsPanel from '@/components/EmailSettingsPanel';
 import Swal from 'sweetalert2';
@@ -478,6 +479,131 @@ export default function AdminDashboard({ categories, subcategories = [], product
     }
   }, [selectedProdId, products]);
 
+  // Stock management states and handlers
+  const [stockItems, setStockItems] = useState([]);
+  const [isLoadingStock, setIsLoadingStock] = useState(false);
+
+  const fetchStockItems = async (prodId, optId) => {
+    if (!prodId) {
+      setStockItems([]);
+      return;
+    }
+    setIsLoadingStock(true);
+    try {
+      let url = `/api/admin/stock?productId=${prodId}`;
+      if (optId) {
+        url += `&productOptionId=${optId}`;
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok) {
+        setStockItems(data.stockItems || []);
+      } else {
+        console.error(data.error);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingStock(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'stock') {
+      fetchStockItems(selectedProdId, selectedOptionIdForStock);
+    } else {
+      setStockItems([]);
+    }
+  }, [selectedProdId, selectedOptionIdForStock, activeTab]);
+
+  const handleDeleteStockItem = async (itemId) => {
+    const result = await Swal.fire({
+      title: 'ยืนยันการลบสต๊อกนี้',
+      text: 'คุณต้องการลบสต๊อกสินค้าชิ้นนี้ออกถาวรจริงหรือไม่?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ลบเลย!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
+
+    setErrorMsg('');
+    setSuccessMsg('');
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(`/api/admin/stock?id=${itemId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      setIsLoading(false);
+
+      if (res.ok) {
+        setSuccessMsg('ลบรายการสต๊อกเรียบร้อยแล้ว!');
+        fetchStockItems(selectedProdId, selectedOptionIdForStock);
+        router.refresh();
+      } else {
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการลบรายการสต๊อก');
+      }
+    } catch (err) {
+      console.error(err);
+      setIsLoading(false);
+      setErrorMsg('เครือข่ายขัดข้อง');
+    }
+  };
+
+  const handleClearAllStock = async (prodId, optId) => {
+    const selectedProd = products.find(p => p.id === prodId);
+    const selectedOpt = selectedProd?.options?.find(o => o.id === optId);
+    
+    const targetName = selectedOpt 
+      ? `"${selectedProd.name} (${selectedOpt.name})"`
+      : `"${selectedProd.name}"`;
+
+    const result = await Swal.fire({
+      title: 'ยืนยันการล้างสต๊อกทั้งหมด',
+      text: `คุณต้องการลบสต๊อกที่ยังไม่ได้ขายทั้งหมดของสินค้า ${targetName} จริงหรือไม่? การลบนี้ไม่สามารถกู้คืนได้!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'ใช่, ล้างทั้งหมด!',
+      cancelButtonText: 'ยกเลิก'
+    });
+    if (!result.isConfirmed) return;
+
+    setErrorMsg('');
+    setSuccessMsg('');
+    setIsLoading(true);
+
+    try {
+      let url = `/api/admin/stock?productId=${prodId}`;
+      if (optId) {
+        url += `&productOptionId=${optId}`;
+      }
+      
+      const res = await fetch(url, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      setIsLoading(false);
+
+      if (res.ok) {
+        setSuccessMsg(data.message || 'ล้างสต๊อกเรียบร้อยแล้ว!');
+        fetchStockItems(selectedProdId, selectedOptionIdForStock);
+        router.refresh();
+      } else {
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการล้างสต๊อก');
+      }
+    } catch (err) {
+      console.error(err);
+      setIsLoading(false);
+      setErrorMsg('เครือข่ายขัดข้อง');
+    }
+  };
+
   // OTP Email Form has been removed
 
   const handleUploadImage = async (e, field, cardId = null) => {
@@ -917,6 +1043,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
       if (res.ok) {
         setSuccessMsg(`เติมคีย์สต๊อกสำเร็จ! เพิ่มเข้าระบบจำนวน ${data.addedCount} ชิ้น`);
         setStockLines('');
+        fetchStockItems(selectedProdId, selectedOptionIdForStock);
         router.refresh();
       } else {
         setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการเติมคีย์สต๊อก');
@@ -1941,72 +2068,149 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
         {/* 3. STOCK TAB (Paste line-by-line) */}
         {activeTab === 'stock' && (
-          <div className="max-w-xl mx-auto bg-white border border-slate-200/50 rounded-2xl p-6 md:p-8 animate-fadeIn">
-            <h3 className="text-xs font-bold text-slate-800 mb-4 flex items-center gap-1.5">
-              <Database className="w-4.5 h-4.5 text-indigo-500" />
-              เติมคีย์สต๊อกสินค้า (ACCOUNT/KEY)
-            </h3>
-            
-            <form onSubmit={handleAddStock} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">เลือกสินค้าที่ต้องการเติมคีย์</label>
-                <select 
-                  value={selectedProdId}
-                  onChange={(e) => setSelectedProdId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
-                >
-                  {products
-                    .filter(p => p.type === 'ACCOUNT')
-                    .map(p => (
-                      <option key={p.id} value={p.id}>{p.name} (ในคลังมีอยู่ {p.stockCount} ชิ้น)</option>
-                    ))
-                  }
-                </select>
-              </div>
-
-              {/* Product Option Selector for Stock */}
-              {(() => {
-                const selectedProductForStock = products.find(p => p.id === selectedProdId);
-                const hasOptions = selectedProductForStock?.options && selectedProductForStock.options.length > 0;
-                if (!hasOptions) return null;
-                return (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
+            {/* Left Column: Replenish Form (Span 1) */}
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-white border border-slate-200/50 rounded-2xl p-5">
+                <h3 className="text-xs font-bold text-slate-800 mb-4 flex items-center gap-1.5">
+                  <Database className="w-4.5 h-4.5 text-indigo-500" />
+                  เติมคีย์สต๊อกสินค้า (ACCOUNT/KEY)
+                </h3>
+                
+                <form onSubmit={handleAddStock} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5">เลือกตัวเลือกของสินค้าที่ต้องการเติมคีย์</label>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">เลือกสินค้าที่ต้องการเติมคีย์</label>
                     <select 
-                      value={selectedOptionIdForStock}
-                      onChange={(e) => setSelectedOptionIdForStock(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                      value={selectedProdId}
+                      onChange={(e) => setSelectedProdId(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
                     >
-                      <option value="">-- ไม่ระบุตัวเลือก (แสดงแบบสินค้าเดี่ยว) --</option>
-                      {selectedProductForStock.options.map(opt => (
-                        <option key={opt.id} value={opt.id}>{opt.name} ({opt.price} บาท)</option>
-                      ))}
+                      {products
+                        .filter(p => p.type === 'ACCOUNT')
+                        .map(p => (
+                          <option key={p.id} value={p.id}>{p.name} (ในคลังมีอยู่ {p.stockCount} ชิ้น)</option>
+                        ))
+                      }
                     </select>
                   </div>
-                );
-              })()}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">ป้อนรหัสคีย์สินค้า (วางทีละบรรทัด)</label>
-                <p className="text-[10px] text-slate-400 mb-1.5 font-light">1 บรรทัดจะเท่ากับสต๊อกสินค้า 1 ชิ้น เช่น: email:password หรือ รหัสบัตร</p>
-                <textarea 
-                  required
-                  rows="8"
-                  placeholder="เช่น&#10;user1@netflix.com:pass123&#10;user2@netflix.com:pass456&#10;user3@netflix.com:pass789" 
-                  value={stockLines}
-                  onChange={(e) => setStockLines(e.target.value)}
-                  className="w-full px-3 py-2 font-mono border border-slate-200 rounded-2xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
-                />
+                  {/* Product Option Selector for Stock */}
+                  {(() => {
+                    const selectedProductForStock = products.find(p => p.id === selectedProdId);
+                    const hasOptions = selectedProductForStock?.options && selectedProductForStock.options.length > 0;
+                    if (!hasOptions) return null;
+                    return (
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">เลือกตัวเลือกของสินค้าที่ต้องการเติมคีย์</label>
+                        <select 
+                          value={selectedOptionIdForStock}
+                          onChange={(e) => setSelectedOptionIdForStock(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                        >
+                          <option value="">-- ไม่ระบุตัวเลือก (แสดงแบบสินค้าเดี่ยว) --</option>
+                          {selectedProductForStock.options.map(opt => (
+                            <option key={opt.id} value={opt.id}>{opt.name} ({opt.price} บาท)</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()}
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ป้อนรหัสคีย์สินค้า (วางทีละบรรทัด)</label>
+                    <p className="text-[9px] text-slate-400 mb-1 font-light">1 บรรทัดจะเท่ากับสต๊อกสินค้า 1 ชิ้น เช่น: email:password หรือ รหัสบัตร</p>
+                    <textarea 
+                      required
+                      rows="8"
+                      placeholder="เช่น&#10;user1@netflix.com:pass123&#10;user2@netflix.com:pass456&#10;user3@netflix.com:pass789" 
+                      value={stockLines}
+                      onChange={(e) => setStockLines(e.target.value)}
+                      className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={isLoading || !selectedProdId}
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-premium shadow-xs cursor-pointer"
+                  >
+                    บันทึกการเติมสต๊อก
+                  </button>
+                </form>
               </div>
+            </div>
 
-              <button 
-                type="submit" 
-                disabled={isLoading || !selectedProdId}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-premium shadow-xs cursor-pointer"
-              >
-                บันทึกการเติมสต๊อก
-              </button>
-            </form>
+            {/* Right Column: Manage Stock Items List (Span 2) */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white border border-slate-200/50 rounded-2xl p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <List className="w-4 h-4 text-indigo-500" />
+                      รายการคีย์ในคลังที่ยังไม่ได้ขาย
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      แสดงรายการสินค้าที่ยังไม่มีผู้ซื้อ คุณสามารถลบออกได้หากป้อนผิดพลาด
+                    </p>
+                  </div>
+                  {stockItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleClearAllStock(selectedProdId, selectedOptionIdForStock)}
+                      className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 border border-red-200/40"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      ล้างคลังทั้งหมด ({stockItems.length} ชิ้น)
+                    </button>
+                  )}
+                </div>
+
+                {isLoadingStock ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                    <span className="text-xs">กำลังโหลดรายการคีย์ในคลัง...</span>
+                  </div>
+                ) : stockItems.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs">
+                    ไม่มีรายการคีย์ค้างในคลังสำหรับตัวเลือกนี้
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-[450px] overflow-y-auto pr-1">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px]">
+                          <th className="py-2.5">คีย์ / ข้อมูลสินค้าในสต๊อก</th>
+                          <th className="py-2.5">วันที่เติมสต๊อก</th>
+                          <th className="py-2.5 text-center">จัดการ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stockItems.map((item) => (
+                          <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                            <td className="py-2 font-mono text-[11px] text-slate-700 break-all select-all pr-4">
+                              {item.content}
+                            </td>
+                            <td className="py-2 text-[10px] text-slate-400">
+                              {new Date(item.createdAt).toLocaleString('th-TH')}
+                            </td>
+                            <td className="py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteStockItem(item.id)}
+                                className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer inline-flex items-center"
+                                title="ลบรายการนี้"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
