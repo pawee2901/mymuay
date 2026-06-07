@@ -95,6 +95,19 @@ export default function AdminDashboard({ categories, subcategories = [], product
     };
   }, [isPinVerified]);
 
+  // Auto-refresh data every 5 minutes
+  useEffect(() => {
+    if (!isPinVerified) return;
+
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in ms
+    const intervalId = setInterval(() => {
+      console.log('[AUTO-REFRESH] Refreshing admin dashboard data...');
+      router.refresh();
+    }, REFRESH_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [isPinVerified, router]);
+
   const handleVerifyPin = (enteredPin) => {
     if (enteredPin === '2901') {
       sessionStorage.setItem('admin_pin_verified', 'true');
