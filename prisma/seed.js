@@ -33,7 +33,7 @@ async function main() {
       username: 'admin',
       password: adminPassword,
       role: 'ADMIN',
-      balance: 1000.0
+      balance: 0.0
     },
   });
 
