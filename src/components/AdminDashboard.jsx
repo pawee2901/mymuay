@@ -1345,11 +1345,11 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพหมวดหมู่ (URL) / อัปโหลดรูปภาพ</label>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพหมวดหมู่ (แนะนำ: 500x500 px) / อัปโหลดรูปภาพ</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="text" 
-                        placeholder="ป้อน URL รูปภาพหน้าปก หรืออัปโหลดไฟล์" 
+                        placeholder="ป้อน URL รูปภาพหน้าปก หรืออัปโหลดไฟล์ (แนะนำ: 500x500 px)" 
                         value={newCatImage}
                         onChange={(e) => setNewCatImage(e.target.value)}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -1474,11 +1474,11 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพหมวดหมู่ย่อย (URL) / อัปโหลด</label>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพหมวดหมู่ย่อย (แนะนำ: 500x500 px) / อัปโหลด</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="text" 
-                        placeholder="ป้อน URL รูปภาพ หรืออัปโหลดไฟล์" 
+                        placeholder="ป้อน URL รูปภาพ หรืออัปโหลดไฟล์ (แนะนำ: 500x500 px)" 
                         value={newSubcatImage}
                         onChange={(e) => setNewSubcatImage(e.target.value)}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1618,12 +1618,12 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพสินค้า (URL) / อัปโหลดรูปภาพ</label>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพสินค้า (แนะนำ: 500x500 px) / อัปโหลดรูปภาพ</label>
                     <div className="flex gap-2 items-center">
                       <input 
                         type="text" 
                         required
-                        placeholder="ป้อน URL รูปภาพสินค้า หรืออัปโหลดไฟล์" 
+                        placeholder="ป้อน URL รูปภาพสินค้า หรืออัปโหลดไฟล์ (แนะนำ: 500x500 px)" 
                         value={newProdImage}
                         onChange={(e) => setNewProdImage(e.target.value)}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -2168,13 +2168,13 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
                       {/* Image/Video & Preview Row */}
                       <div>
-                        <label className="block text-[9px] font-bold text-slate-400 mb-0.5">ลิงก์รูปภาพหรือวิดีโอ (Image/Video URL) / อัปโหลดไฟล์รูปภาพหรือวิดีโอ</label>
+                        <label className="block text-[9px] font-bold text-slate-400 mb-0.5">ลิงก์รูปภาพหรือวิดีโอ (แนะนำ: 1920x640 px) / อัปโหลดไฟล์รูปภาพหรือวิดีโอ</label>
                         <div className="flex gap-2 items-center">
                           <input
                             type="text"
                             value={slide.image}
                             onChange={(e) => handleCarouselInputChange(slide.id, 'image', e.target.value)}
-                            placeholder="เช่น /uploads/my-banner.png หรือ .mp4"
+                            placeholder="เช่น /uploads/my-banner.png หรือ .mp4 (แนะนำ: 1920x640 px)"
                             className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
                           />
                           <label className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg cursor-pointer flex items-center gap-1 transition-all select-none border border-slate-200 shrink-0">
@@ -2278,12 +2278,13 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         />
                       </div>
                       <div>
-                        <label className="block text-[9px] font-bold text-slate-400 mb-0.5">ลิงก์รูปภาพ (Image URL) / อัปโหลดรูปภาพ</label>
+                        <label className="block text-[9px] font-bold text-slate-400 mb-0.5">ลิงก์รูปภาพ (แนะนำ: 800x450 px) / อัปโหลดรูปภาพ</label>
                         <div className="flex gap-2 items-center">
                           <input
                             type="text"
                             value={card.imageUrl}
                             onChange={(e) => handleCardInputChange(card.id, 'imageUrl', e.target.value)}
+                            placeholder="ป้อน URL รูปภาพ หรืออัปโหลดไฟล์ (แนะนำ: 800x450 px)" 
                             className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
                           />
                           <label className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg cursor-pointer flex items-center gap-1 transition-all select-none border border-slate-200 shrink-0">
@@ -2387,12 +2388,12 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider flex items-center justify-between">
-                  <span>ลิงก์รูปภาพ QR Code / อัปโหลดรูปภาพ</span>
+                  <span>ลิงก์รูปภาพ QR Code (แนะนำ: 500x500 px) / อัปโหลดรูปภาพ</span>
                 </label>
                 <div className="flex gap-2 items-center">
                   <input
                     type="text"
-                    placeholder="เช่น /images/my-qr.png หรือ ลิงก์รูปภาพออนไลน์"
+                    placeholder="เช่น /images/my-qr.png หรือ ลิงก์รูปภาพออนไลน์ (แนะนำ: 500x500 px)"
                     value={depQrImageUrl}
                     onChange={(e) => setDepQrImageUrl(e.target.value)}
                     className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
@@ -2428,12 +2429,12 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider flex items-center justify-between">
-                  <span>โลโก้แอปธนาคาร / อัปโหลดรูปโลโก้ (ถ้ามี)</span>
+                  <span>โลโก้แอปธนาคาร (แนะนำ: 100x100 px) / อัปโหลดรูปโลโก้ (ถ้ามี)</span>
                 </label>
                 <div className="flex gap-2 items-center">
                   <input
                     type="text"
-                    placeholder="เช่น /images/my-bank-logo.png หรือ ลิงก์รูปภาพออนไลน์"
+                    placeholder="เช่น /images/my-bank-logo.png หรือ ลิงก์รูปภาพออนไลน์ (แนะนำ: 100x100 px)"
                     value={depBankLogoUrl}
                     onChange={(e) => setDepBankLogoUrl(e.target.value)}
                     className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
@@ -2619,12 +2620,12 @@ export default function AdminDashboard({ categories, subcategories = [], product
                 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
-                    โลโก้ร้านค้า (Store Logo URL)
+                    โลโก้ร้านค้า (แนะนำ: 200x200 px) (Store Logo URL)
                   </label>
                   <div className="flex gap-2 items-start">
                     <input
                       type="text"
-                      placeholder="ป้อน URL รูปภาพโลโก้ หรืออัปโหลดไฟล์"
+                      placeholder="ป้อน URL รูปภาพโลโก้ หรืออัปโหลดไฟล์ (แนะนำ: 200x200 px)"
                       value={siteLogoUrl}
                       onChange={(e) => setSiteLogoUrl(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800 flex-1"
