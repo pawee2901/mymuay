@@ -51,3 +51,54 @@ export async function POST(request) {
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการสร้างหมวดหมู่ใหม่' }, { status: 500 });
   }
 }
+
+export async function PUT(request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'ไม่ได้รับอนุญาตให้เข้าถึง' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id, name, image } = body;
+
+    if (!id || !name) {
+      return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
+    }
+
+    const updated = await prisma.category.update({
+      where: { id },
+      data: { name, image }
+    });
+
+    return NextResponse.json({ success: true, category: updated });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการแก้ไขหมวดหมู่' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'ไม่ได้รับอนุญาตให้เข้าถึง' }, { status: 403 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ไม่พบรหัสหมวดหมู่' }, { status: 400 });
+    }
+
+    await prisma.category.delete({
+      where: { id }
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลบหมวดหมู่' }, { status: 500 });
+  }
+}

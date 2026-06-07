@@ -137,25 +137,27 @@ export default async function AdminPage() {
 
 
   // Sanitize objects to pass to Client Component safely
-  const serializedCategories = categories.map(c => ({ id: c.id, name: c.name }));
+  const serializedCategories = categories.map(c => ({ id: c.id, name: c.name, image: c.image }));
 
   const serializedSubcategories = subcategories.map(s => ({
     id: s.id,
     name: s.name,
-    categoryId: s.categoryId
+    categoryId: s.categoryId,
+    image: s.image || ''
   }));
   
   const serializedProducts = products.map(p => ({
     id: p.id,
     name: p.name,
     price: p.price,
+    agentPrice: p.agentPrice || 0.0,
     image: p.image,
     type: p.type,
     categoryName: p.category.name,
     categoryId: p.categoryId,
     subCategoryId: p.subCategoryId,
     stockCount: p.stockItems.length,
-    options: p.options.map(opt => ({ id: opt.id, name: opt.name, price: opt.price }))
+    options: p.options.map(opt => ({ id: opt.id, name: opt.name, price: opt.price, agentPrice: opt.agentPrice || 0.0 }))
   }));
 
   const serializedOrders = orders.map(o => ({

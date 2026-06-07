@@ -37,6 +37,79 @@ export default function AdminDashboard({ categories, subcategories = [], product
   const [successMsg, setSuccessMsg] = useState('');
   const [uploadingField, setUploadingField] = useState(null); // 'cat' | 'prod' | 'subcat' | 'depositQr' | 'card1' | 'card2' | 'card3' | 'card4'
 
+  // PIN Verification State
+  const [isPinVerified, setIsPinVerified] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [pinErrorMessage, setPinErrorMessage] = useState('');
+
+  // Check pin verification status on mount
+  useEffect(() => {
+    const verified = sessionStorage.getItem('admin_pin_verified') === 'true';
+    if (verified) {
+      setIsPinVerified(true);
+    }
+  }, []);
+
+  // Idle timeout detector (1 hour)
+  useEffect(() => {
+    if (!isPinVerified) return;
+
+    let timeoutId;
+    const IDLE_TIME = 3600000; // 1 hour in ms
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleIdleTimeout, IDLE_TIME);
+    };
+
+    const handleIdleTimeout = async () => {
+      console.log('[IDLE TIMEOUT] Admin inactive for 1 hour, logging out...');
+      sessionStorage.removeItem('admin_pin_verified');
+      setIsPinVerified(false);
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/auth/signin';
+      } catch (err) {
+        console.error('Logout failed:', err);
+        router.push('/auth/signin');
+      }
+    };
+
+    // User activity listeners
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    const handleEvent = () => resetTimer();
+    events.forEach(event => {
+      window.addEventListener(event, handleEvent);
+    });
+
+    // Start timer on mount/verification
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => {
+        window.removeEventListener(event, handleEvent);
+      });
+    };
+  }, [isPinVerified]);
+
+  const handleVerifyPin = (enteredPin) => {
+    if (enteredPin === '2901') {
+      sessionStorage.setItem('admin_pin_verified', 'true');
+      setIsPinVerified(true);
+      setPinError(false);
+      setPinInput('');
+      setPinErrorMessage('');
+    } else {
+      setPinError(true);
+      setPinInput('');
+      setPinErrorMessage('รหัสผ่าน PIN ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+      // Reset error state after 1.5 seconds (for shake effect)
+      setTimeout(() => setPinError(false), 1500);
+    }
+  };
+
   // Subcategory Add Form State
   const [newSubcatName, setNewSubcatName] = useState('');
   const [newSubcatImage, setNewSubcatImage] = useState('');
@@ -45,6 +118,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
   // Product Option Add Form State
   const [newOptionName, setNewOptionName] = useState('');
   const [newOptionPrice, setNewOptionPrice] = useState('');
+  const [newOptionAgentPrice, setNewOptionAgentPrice] = useState('');
   const [selectedOptionIdForStock, setSelectedOptionIdForStock] = useState('');
 
   // Deposit edit state
@@ -320,11 +394,13 @@ export default function AdminDashboard({ categories, subcategories = [], product
   // Create Category Form
   const [newCatName, setNewCatName] = useState('');
   const [newCatImage, setNewCatImage] = useState('');
+  const [editingCatId, setEditingCatId] = useState(null);
 
   // Create Product Form
   const [newProdName, setNewProdName] = useState('');
   const [newProdDesc, setNewProdDesc] = useState('');
   const [newProdPrice, setNewProdPrice] = useState('');
+  const [newProdAgentPrice, setNewProdAgentPrice] = useState('');
   const [newProdImage, setNewProdImage] = useState('');
   const [newProdType, setNewProdType] = useState('ACCOUNT');
   const [newProdCatId, setNewProdCatId] = useState(categories[0]?.id || '');
@@ -338,6 +414,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
     setNewProdName(prod.name);
     setNewProdDesc(prod.description);
     setNewProdPrice(prod.price.toString());
+    setNewProdAgentPrice((prod.agentPrice || 0).toString());
     setNewProdImage(prod.image);
     setNewProdType(prod.type);
     
@@ -356,6 +433,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
     setNewProdName('');
     setNewProdDesc('');
     setNewProdPrice('');
+    setNewProdAgentPrice('');
     setNewProdImage('');
     setNewProdType('ACCOUNT');
     setNewProdCatId(categories[0]?.id || '');
@@ -463,28 +541,76 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
   // --- ACTIONS ---
   // 1. Create Category Action
-  const handleCreateCategory = async (e) => {
+  // 1. Save Category Action (Create / Update)
+  const handleSaveCategory = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/admin/categories', {
-        method: 'POST',
+      const url = '/api/admin/categories';
+      const method = editingCatId ? 'PUT' : 'POST';
+      const bodyData = editingCatId 
+        ? { id: editingCatId, name: newCatName, image: newCatImage } 
+        : { name: newCatName, image: newCatImage };
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newCatName, image: newCatImage }),
+        body: JSON.stringify(bodyData),
       });
       const data = await res.json();
       setIsLoading(false);
 
       if (res.ok) {
-        setSuccessMsg(`เพิ่มหมวดหมู่ "${newCatName}" เรียบร้อยแล้ว!`);
+        setSuccessMsg(editingCatId ? `แก้ไขหมวดหมู่เรียบร้อยแล้ว!` : `เพิ่มหมวดหมู่ "${newCatName}" เรียบร้อยแล้ว!`);
         setNewCatName('');
         setNewCatImage('');
+        setEditingCatId(null);
         router.refresh();
       } else {
-        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการสร้างหมวดหมู่');
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการบันทึกหมวดหมู่');
+      }
+    } catch (err) {
+      console.error(err);
+      setIsLoading(false);
+      setErrorMsg('เครือข่ายขัดข้อง');
+    }
+  };
+
+  const handleStartEditCategory = (cat) => {
+    setEditingCatId(cat.id);
+    setNewCatName(cat.name);
+    setNewCatImage(cat.image || '');
+  };
+
+  const handleCancelEditCategory = () => {
+    setEditingCatId(null);
+    setNewCatName('');
+    setNewCatImage('');
+  };
+
+  const handleDeleteCategory = async (catId) => {
+    if (!confirm('คุณต้องการลบหมวดหมู่หลักนี้หรือไม่? ลบแล้วสินค้าและหมวดหมู่ย่อยทั้งหมดในหมวดหมู่นี้จะถูกลบไปด้วยแบบถาวร!')) {
+      return;
+    }
+    setErrorMsg('');
+    setSuccessMsg('');
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(`/api/admin/categories?id=${catId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      setIsLoading(false);
+
+      if (res.ok) {
+        setSuccessMsg('ลบหมวดหมู่หลักสำเร็จ!');
+        router.refresh();
+      } else {
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการลบหมวดหมู่หลัก');
       }
     } catch (err) {
       console.error(err);
@@ -557,7 +683,6 @@ export default function AdminDashboard({ categories, subcategories = [], product
     }
   };
 
-  // 1.7 Create/Delete Product Option Actions
   const handleCreateOption = async (e) => {
     e.preventDefault();
     if (!editingProdId) return;
@@ -572,7 +697,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
         body: JSON.stringify({
           productId: editingProdId,
           name: newOptionName,
-          price: newOptionPrice
+          price: newOptionPrice,
+          agentPrice: newOptionAgentPrice || '0'
         }),
       });
 
@@ -583,6 +709,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
         setSuccessMsg(`เพิ่มตัวเลือกสินค้า "${newOptionName}" สำเร็จ!`);
         setNewOptionName('');
         setNewOptionPrice('');
+        setNewOptionAgentPrice('');
         router.refresh();
       } else {
         setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการสร้างตัวเลือกสินค้า');
@@ -637,6 +764,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
         name: newProdName,
         description: newProdDesc,
         price: newProdPrice,
+        agentPrice: newProdAgentPrice || '0',
         image: newProdImage,
         type: newProdType,
         categoryId: newProdCatId,
@@ -734,11 +862,9 @@ export default function AdminDashboard({ categories, subcategories = [], product
     }
   };
 
-  // 4. Toggle User Role Action
-  const handleToggleUserRole = async (userId, currentRole) => {
+  const handleToggleUserRole = async (userId, newRole) => {
     setErrorMsg('');
     setSuccessMsg('');
-    const newRole = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
 
     if (userId === adminUser.userId) {
       alert('คุณไม่สามารถเปลี่ยนบทบาทของตัวเองได้!');
@@ -767,6 +893,106 @@ export default function AdminDashboard({ categories, subcategories = [], product
       setErrorMsg('เครือข่ายขัดข้อง');
     }
   };
+
+  if (!isPinVerified) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 px-4 select-none relative overflow-hidden font-sans">
+        {/* Soft blue glowing backgrounds */}
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] aspect-square rounded-full bg-blue-500/10 blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] aspect-square rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none"></div>
+
+        <div className={`relative max-w-sm w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 text-center shadow-2xl transition-all duration-300 ${pinError ? 'animate-shake border-red-500/40 bg-red-500/5' : ''}`}>
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white mx-auto shadow-lg shadow-indigo-600/30 mb-6">
+            <ShieldCheck className="w-8 h-8" />
+          </div>
+          
+          <h2 className="text-lg font-black text-white leading-tight">ระบบความปลอดภัยร้านค้า</h2>
+          <p className="text-xs text-slate-300 mt-2 font-medium">กรุณากรอกรหัสผ่าน 4 หลัก เพื่อตรวจสอบสิทธิ์การเป็นเจ้าของร้านค้า</p>
+          
+          {/* PIN Dots Indicators */}
+          <div className="flex justify-center gap-4 my-8">
+            {[0, 1, 2, 3].map((idx) => (
+              <div 
+                key={idx}
+                className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
+                  pinInput.length > idx 
+                    ? 'bg-indigo-500 border-indigo-400 scale-110 shadow-md shadow-indigo-500/50' 
+                    : 'border-slate-500 bg-transparent'
+                }`}
+              ></div>
+            ))}
+          </div>
+
+          {pinErrorMessage && (
+            <p className="text-xs font-bold text-rose-400 mb-6 animate-pulse">{pinErrorMessage}</p>
+          )}
+
+          {/* Virtual Numeric Pad */}
+          <div className="grid grid-cols-3 gap-3 max-w-[260px] mx-auto">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => {
+                  if (pinInput.length < 4) {
+                    const nextInput = pinInput + num;
+                    setPinInput(nextInput);
+                    if (nextInput.length === 4) {
+                      setTimeout(() => handleVerifyPin(nextInput), 150);
+                    }
+                  }
+                }}
+                className="w-16 h-16 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 active:bg-white/25 text-xl font-bold text-white transition-all flex items-center justify-center cursor-pointer select-none"
+              >
+                {num}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPinInput('')}
+              className="w-16 h-16 rounded-full bg-transparent text-xs font-bold text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center cursor-pointer select-none"
+            >
+              เคลียร์
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (pinInput.length < 4) {
+                  const nextInput = pinInput + '0';
+                  setPinInput(nextInput);
+                  if (nextInput.length === 4) {
+                    setTimeout(() => handleVerifyPin(nextInput), 150);
+                  }
+                }
+              }}
+              className="w-16 h-16 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 active:bg-white/25 text-xl font-bold text-white transition-all flex items-center justify-center cursor-pointer select-none"
+            >
+              0
+            </button>
+            <button
+              type="button"
+              onClick={() => setPinInput(prev => prev.slice(0, -1))}
+              className="w-16 h-16 rounded-full bg-transparent text-xs font-bold text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center cursor-pointer select-none"
+            >
+              ลบ
+            </button>
+          </div>
+        </div>
+
+        {/* Global Shake Keyframes Style */}
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+            20%, 40%, 60%, 80% { transform: translateX(6px); }
+          }
+          .animate-shake {
+            animation: shake 0.4s ease-in-out;
+          }
+        `}} />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col md:flex-row min-h-[calc(100vh-64px)] font-sans bg-slate-50/50">
@@ -1033,13 +1259,13 @@ export default function AdminDashboard({ categories, subcategories = [], product
             {/* Left Forms column (Add Product & Category) */}
             <div className="lg:col-span-1 space-y-6">
               
-              {/* Category creation form */}
+              {/* Category creation/edit form */}
               <div className="bg-white border border-slate-200/50 rounded-2xl p-5">
                 <h3 className="text-xs font-bold text-slate-800 mb-4 flex items-center gap-1.5">
                   <PlusCircle className="w-4 h-4 text-indigo-500" />
-                  สร้างหมวดหมู่ใหม่
+                  {editingCatId ? 'แก้ไขหมวดหมู่หลัก' : 'สร้างหมวดหมู่หลักใหม่'}
                 </h3>
-                <form onSubmit={handleCreateCategory} className="space-y-3">
+                <form onSubmit={handleSaveCategory} className="space-y-3">
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 mb-1">ชื่อหมวดหมู่</label>
                     <input 
@@ -1088,14 +1314,65 @@ export default function AdminDashboard({ categories, subcategories = [], product
                       </div>
                     )}
                   </div>
-                  <button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-premium cursor-pointer"
-                  >
-                    สร้างหมวดหมู่
-                  </button>
+                  
+                  <div className="flex gap-2">
+                    {editingCatId && (
+                      <button 
+                        type="button" 
+                        onClick={handleCancelEditCategory}
+                        className="w-1/3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-premium cursor-pointer border border-slate-200"
+                      >
+                        ยกเลิก
+                      </button>
+                    )}
+                    <button 
+                      type="submit" 
+                      disabled={isLoading}
+                      className={`py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-premium cursor-pointer ${
+                        editingCatId ? 'w-2/3' : 'w-full'
+                      }`}
+                    >
+                      {editingCatId ? 'บันทึกการแก้ไข' : 'สร้างหมวดหมู่'}
+                    </button>
+                  </div>
                 </form>
+
+                {/* Categories list */}
+                {categories.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 max-h-48 overflow-y-auto space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1">หมวดหมู่หลักทั้งหมด ({categories.length})</span>
+                    {categories.map(c => (
+                      <div key={c.id} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {c.image ? (
+                            <img src={c.image} alt={c.name} className="w-6 h-6 rounded-md object-cover border border-slate-200 shrink-0" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-md bg-slate-200 shrink-0" />
+                          )}
+                          <span className="text-[10px] font-bold text-slate-700 truncate">{c.name}</span>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button 
+                            type="button"
+                            onClick={() => handleStartEditCategory(c)}
+                            className="p-1 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded transition-all cursor-pointer"
+                            title="แก้ไขหมวดหมู่"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleDeleteCategory(c.id)}
+                            className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer"
+                            title="ลบหมวดหมู่"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Subcategory creation form */}
@@ -1232,9 +1509,9 @@ export default function AdminDashboard({ categories, subcategories = [], product
                       className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">ราคา (บาท)</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">ราคาปกติ (บาท)</label>
                       <input 
                         type="number" 
                         required
@@ -1243,6 +1520,19 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         placeholder="150" 
                         value={newProdPrice}
                         onChange={(e) => setNewProdPrice(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">ราคาส่งตัวแทน (บาท)</label>
+                      <input 
+                        type="number" 
+                        required
+                        min="0"
+                        step="0.01"
+                        placeholder="120" 
+                        value={newProdAgentPrice}
+                        onChange={(e) => setNewProdAgentPrice(e.target.value)}
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
@@ -1367,16 +1657,29 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">ราคาตัวเลือก (บาท)</label>
-                      <input 
-                        type="number" 
-                        required
-                        placeholder="15" 
-                        value={newOptionPrice}
-                        onChange={(e) => setNewOptionPrice(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">ราคาปกติ (บาท)</label>
+                        <input 
+                          type="number" 
+                          required
+                          placeholder="15" 
+                          value={newOptionPrice}
+                          onChange={(e) => setNewOptionPrice(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">ราคาส่งตัวแทน (บาท)</label>
+                        <input 
+                          type="number" 
+                          required
+                          placeholder="12" 
+                          value={newOptionAgentPrice}
+                          onChange={(e) => setNewOptionAgentPrice(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
                     <button 
                       type="submit" 
@@ -1399,7 +1702,9 @@ export default function AdminDashboard({ categories, subcategories = [], product
                             <div key={opt.id} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
                               <div className="min-w-0">
                                 <span className="text-[10px] font-bold text-slate-700 block truncate">{opt.name}</span>
-                                <span className="text-[9px] text-[#2563eb] block font-black">{opt.price.toLocaleString()} บาท</span>
+                                <span className="text-[9px] text-[#2563eb] block font-black">
+                                  ทั่วไป: {opt.price.toLocaleString()} ฿ / ส่ง: {(opt.agentPrice || 0).toLocaleString()} ฿
+                                </span>
                               </div>
                               <button 
                                 type="button"
@@ -1502,7 +1807,10 @@ export default function AdminDashboard({ categories, subcategories = [], product
                           </td>
                           <td className="py-2 font-bold text-slate-700">{prod.name}</td>
                           <td className="py-2 text-slate-500">{prod.categoryName}</td>
-                          <td className="py-2 text-right font-bold text-indigo-600">{prod.price} ฿</td>
+                          <td className="py-2 text-right font-bold text-slate-700">
+                            <div>ทั่วไป: {prod.price} ฿</div>
+                            <div className="text-[10px] text-purple-600">ส่ง: {prod.agentPrice || 0} ฿</div>
+                          </td>
                           <td className="py-2 text-center">
                             {prod.type === 'TOPUP' ? (
                               <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold">
@@ -1644,6 +1952,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
                           u.role === 'ADMIN' 
                             ? 'bg-red-50 text-red-600 border border-red-100' 
+                            : u.role === 'AGENT'
+                            ? 'bg-purple-50 text-purple-600 border border-purple-100'
                             : 'bg-slate-100 text-slate-500 border border-slate-200/50'
                         }`}>
                           {u.role}
@@ -1653,16 +1963,19 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         {new Date(u.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </td>
                       <td className="py-3 text-center">
-                        <button 
-                          onClick={() => handleToggleUserRole(u.id, u.role)}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-premium cursor-pointer ${
-                            u.role === 'ADMIN' 
-                              ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200/40' 
-                              : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200/40'
-                          }`}
-                        >
-                          {u.role === 'ADMIN' ? 'ลดสิทธิ์เป็น USER' : 'โปรโมตเป็น ADMIN'}
-                        </button>
+                        {u.id === adminUser.userId ? (
+                          <span className="text-[10px] text-slate-400 font-semibold italic">บัญชีปัจจุบัน</span>
+                        ) : (
+                          <select 
+                            value={u.role}
+                            onChange={(e) => handleToggleUserRole(u.id, e.target.value)}
+                            className="px-2 py-1 border border-slate-200 rounded-lg text-[10px] font-bold bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="USER">USER</option>
+                            <option value="AGENT">AGENT (ตัวแทน)</option>
+                            <option value="ADMIN">ADMIN</option>
+                          </select>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -55,7 +55,12 @@ export default function ProductView({ product }) {
   }, []);
 
   const selectedOption = product.options?.find(o => o.id === selectedOptionId) || null;
-  const currentPrice = selectedOption ? selectedOption.price : product.price;
+  const isAgent = currentUser?.role === 'AGENT';
+  const optionPrice = selectedOption 
+    ? (isAgent && selectedOption.agentPrice > 0 ? selectedOption.agentPrice : selectedOption.price)
+    : selectedOption?.price || 0;
+  const mainPrice = isAgent && product.agentPrice > 0 ? product.agentPrice : product.price;
+  const currentPrice = selectedOption ? optionPrice : mainPrice;
   const availableStock = selectedOption ? selectedOption.stockCount : product.stockCount;
   const isOutOfStock = product.type === 'ACCOUNT' && availableStock === 0;
 
@@ -183,9 +188,22 @@ export default function ProductView({ product }) {
             
             {/* Price display (based on selected option) */}
             {!isWarningCard && (
-              <p className="text-[#2563eb] text-2xl font-black mt-2">
-                {currentPrice.toLocaleString()} <span className="text-xs font-bold text-slate-400">บาท</span>
-              </p>
+              <div className="flex flex-wrap items-end gap-2 mt-2">
+                {isAgent && (selectedOption ? selectedOption.agentPrice > 0 : product.agentPrice > 0) ? (
+                  <>
+                    <span className="text-slate-400 line-through text-base font-semibold mb-0.5">
+                      {selectedOption ? selectedOption.price.toLocaleString() : product.price.toLocaleString()} บาท
+                    </span>
+                    <span className="text-[#2563eb] text-2xl font-black">
+                      {currentPrice.toLocaleString()} <span className="text-xs font-bold text-slate-400">บาท (ส่งตัวแทน)</span>
+                    </span>
+                  </>
+                ) : (
+                  <p className="text-[#2563eb] text-2xl font-black">
+                    {currentPrice.toLocaleString()} <span className="text-xs font-bold text-slate-400">บาท</span>
+                  </p>
+                )}
+              </div>
             )}
 
             {/* Description Box */}
@@ -221,7 +239,14 @@ export default function ProductView({ product }) {
                             {opt.name}
                           </p>
                           <p className={`text-xs font-black mt-1 ${isSelected ? 'text-[#2563eb]' : 'text-slate-800'} ${optOutOfStock ? 'line-through opacity-60' : ''}`}>
-                            {opt.price.toLocaleString()} บาท
+                            {isAgent && opt.agentPrice > 0 ? (
+                              <span className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-slate-400 line-through text-[10px] font-semibold">{opt.price.toLocaleString()} ฿</span>
+                                <span className="text-purple-600">{opt.agentPrice.toLocaleString()} ฿ (ส่ง)</span>
+                              </span>
+                            ) : (
+                              <span>{opt.price.toLocaleString()} บาท</span>
+                            )}
                           </p>
                         </div>
                         <span className={`text-[9px] font-bold shrink-0 px-2.5 py-1 rounded-full ${

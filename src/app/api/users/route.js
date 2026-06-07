@@ -58,7 +58,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'กรุณาระบุรหัสผู้ใช้งานและยศที่ต้องการปรับ' }, { status: 400 });
     }
 
-    if (role !== 'USER' && role !== 'ADMIN') {
+    if (role !== 'USER' && role !== 'ADMIN' && role !== 'AGENT') {
       return NextResponse.json({ error: 'บทบาทไม่ถูกต้อง' }, { status: 400 });
     }
 

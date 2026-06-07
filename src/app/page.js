@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import HomeCarousel from '@/components/HomeCarousel';
 import CtaGrid from '@/components/CtaGrid';
+import ClientPrice from '@/components/ClientPrice';
 
 export const revalidate = 0; // Disable caching to keep stats and stock count fully live
 
@@ -267,7 +268,7 @@ export default async function Home() {
                     <h3 className="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition-premium" title={prod.name}>
                       {prod.name}
                     </h3>
-                    <p className="text-blue-600 text-sm font-black mt-1">{prod.price.toLocaleString()} บาท</p>
+                    <ClientPrice price={prod.price} agentPrice={prod.agentPrice} />
                   </div>
                 </Link>
 

@@ -32,7 +32,7 @@ export default function ProfilePage() {
       setLoading(true);
       const res = await fetch('/api/users/profile');
       if (!res.ok) {
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 404) {
           router.push('/auth/signin');
           return;
         }

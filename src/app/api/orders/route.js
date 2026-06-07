@@ -25,6 +25,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'กรุณาระบุรหัสสินค้า' }, { status: 400 });
     }
 
+    // Load user first to verify role and balance
+    const dbUser = await prisma.user.findUnique({
+      where: { id: decodedUser.userId }
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลผู้ใช้งาน' }, { status: 404 });
+    }
+
     // 1. Fetch Product
     const product = await prisma.product.findUnique({
       where: { id: productId },
@@ -50,7 +59,10 @@ export async function POST(request) {
       }
     }
 
-    const pricePerUnit = chosenOption ? chosenOption.price : product.price;
+    const isAgent = dbUser.role === 'AGENT';
+    const pricePerUnit = chosenOption 
+      ? (isAgent && chosenOption.agentPrice > 0 ? chosenOption.agentPrice : chosenOption.price)
+      : (isAgent && product.agentPrice > 0 ? product.agentPrice : product.price);
     const totalPrice = pricePerUnit * quantity;
 
     let orderContent = '';
@@ -98,15 +110,6 @@ export async function POST(request) {
     // Set Expiration Date for subscriptions (default: 30 days from now)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiration
-
-    // Check user balance first
-    const dbUser = await prisma.user.findUnique({
-      where: { id: decodedUser.userId }
-    });
-
-    if (!dbUser) {
-      return NextResponse.json({ error: 'ไม่พบข้อมูลผู้ใช้งาน' }, { status: 404 });
-    }
 
     if (dbUser.balance < totalPrice) {
       return NextResponse.json({ error: 'ยอดเงินในกระเป๋าเงินไม่เพียงพอ กรุณาเติมเงินเข้าระบบก่อนทำรายการ' }, { status: 400 });

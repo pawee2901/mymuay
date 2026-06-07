@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/db';
 import { Layers, Sparkles, AlertCircle, Inbox, ChevronRight, Eye } from 'lucide-react';
+import ClientPrice from '@/components/ClientPrice';
 
 export const revalidate = 0;
 
@@ -325,7 +326,11 @@ export default async function CategoriesPage({ searchParams }) {
                         <h3 className="text-xs font-bold text-slate-800 line-clamp-2 min-h-[32px] group-hover:text-[#2563eb] transition-premium" title={prod.name}>
                           {prod.name}
                         </h3>
-                        <p className="text-[#2563eb] text-xs font-black mt-1">{priceDisplay}</p>
+                        {isWarning ? (
+                          <p className="text-[#2563eb] text-xs font-black mt-1">9,999 บาท</p>
+                        ) : (
+                          <ClientPrice price={prod.price} agentPrice={prod.agentPrice} options={prod.options} />
+                        )}
                       </div>
                     </Link>
 

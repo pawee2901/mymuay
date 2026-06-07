@@ -43,6 +43,7 @@ model Product {
   name          String
   description   String
   price         Float
+  agentPrice    Float          @default(0.0)
   image         String
   type          String         @default("ACCOUNT") // "ACCOUNT" (digital code/account) or "TOPUP" (game ref ID)
   categoryId    String
@@ -94,6 +95,7 @@ model ProductOption {
   product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   name       String
   price      Float
+  agentPrice Float       @default(0.0)
   stockItems StockItem[]
   orders     Order[]
   createdAt  DateTime    @default(now())

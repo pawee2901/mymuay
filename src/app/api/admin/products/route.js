@@ -24,7 +24,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { name, description, price, image, type, categoryId, subCategoryId } = body;
+    const { name, description, price, agentPrice, image, type, categoryId, subCategoryId } = body;
 
     if (!name || !description || !price || !image || !type || !categoryId) {
       return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง' }, { status: 400 });
@@ -35,6 +35,7 @@ export async function POST(request) {
         name,
         description,
         price: parseFloat(price),
+        agentPrice: parseFloat(agentPrice) || 0.0,
         image,
         type,
         categoryId,
@@ -58,7 +59,7 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const { id, name, description, price, image, type, categoryId, subCategoryId } = body;
+    const { id, name, description, price, agentPrice, image, type, categoryId, subCategoryId } = body;
 
     if (!id || !name || !description || price === undefined || !image || !type || !categoryId) {
       return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง' }, { status: 400 });
@@ -70,6 +71,7 @@ export async function PUT(request) {
         name,
         description,
         price: parseFloat(price),
+        agentPrice: parseFloat(agentPrice) || 0.0,
         image,
         type,
         categoryId,

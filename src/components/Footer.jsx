@@ -19,8 +19,6 @@ export default function Footer({ siteSetting }) {
           <Heart className="w-3 h-3 text-rose-500 fill-rose-500 animate-pulse" />
           <span>by</span>
           <a href="#" className="hover:underline font-medium text-blue-600">{storeName}</a>
-          <span>partnered with</span>
-          <a href="#" className="hover:underline font-medium text-slate-600">muayy-group</a>
         </div>
 
         <div className="flex items-center gap-4">

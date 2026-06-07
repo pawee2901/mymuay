@@ -22,16 +22,25 @@ export async function GET(request) {
     // Fetch latest user data from DB
     const dbUser = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { balance: true }
+      select: { balance: true, role: true }
     });
+    
+    if (!dbUser) {
+      const response = NextResponse.json({ authenticated: false }, { status: 401 });
+      response.cookies.delete('token');
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('Pragma', 'no-cache');
+      response.headers.set('Expires', '0');
+      return response;
+    }
     
     const response = NextResponse.json({
       authenticated: true,
       user: {
         id: decoded.userId,
         username: decoded.username,
-        role: decoded.role,
-        balance: dbUser?.balance || 0.0
+        role: dbUser.role || decoded.role,
+        balance: dbUser.balance
       }
     });
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

@@ -43,7 +43,9 @@ export async function GET(request) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      const response = NextResponse.json({ error: 'User not found' }, { status: 404 });
+      response.cookies.delete('token');
+      return response;
     }
 
     // Exclude password from the response for security

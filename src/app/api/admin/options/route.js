@@ -24,7 +24,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { productId, name, price } = body;
+    const { productId, name, price, agentPrice } = body;
 
     if (!productId || !name || price === undefined) {
       return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
@@ -34,7 +34,8 @@ export async function POST(request) {
       data: {
         productId,
         name,
-        price: parseFloat(price)
+        price: parseFloat(price),
+        agentPrice: parseFloat(agentPrice) || 0.0
       }
     });
 
