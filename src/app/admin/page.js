@@ -41,7 +41,12 @@ export default async function AdminPage() {
     include: {
       category: true,
       stockItems: { where: { isUsed: false } },
-      options: true
+      options: {
+        orderBy: [
+          { position: 'asc' },
+          { price: 'asc' }
+        ]
+      }
     },
     orderBy: { createdAt: 'desc' }
   });
@@ -153,11 +158,13 @@ export default async function AdminPage() {
     agentPrice: p.agentPrice || 0.0,
     image: p.image,
     type: p.type,
+    gameServiceCode: p.gameServiceCode || '',
+    externalPackCode: p.externalPackCode || '',
     categoryName: p.category.name,
     categoryId: p.categoryId,
     subCategoryId: p.subCategoryId,
     stockCount: p.stockItems.length,
-    options: p.options.map(opt => ({ id: opt.id, name: opt.name, price: opt.price, agentPrice: opt.agentPrice || 0.0 }))
+    options: p.options.map(opt => ({ id: opt.id, name: opt.name, price: opt.price, agentPrice: opt.agentPrice || 0.0, externalPackCode: opt.externalPackCode || '', position: opt.position || 0 }))
   }));
 
   const serializedOrders = orders.map(o => ({

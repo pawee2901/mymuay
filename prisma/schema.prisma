@@ -46,6 +46,8 @@ model Product {
   agentPrice    Float          @default(0.0)
   image         String
   type          String         @default("ACCOUNT") // "ACCOUNT" (digital code/account) or "TOPUP" (game ref ID)
+  gameServiceCode String       @default("") // WonDD servicecode, e.g. rov, freefire
+  externalPackCode String      @default("") // WonDD packcode when product has no options
   categoryId    String
   category      Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   subCategoryId String?
@@ -63,6 +65,7 @@ model StockItem {
   productOptionId String?
   productOption   ProductOption? @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
   content         String         // e.g. "email:password" or "PIN-123-456"
+  guideImage      String?        // Image showing how to login/access
   isUsed          Boolean        @default(false)
   createdAt       DateTime       @default(now())
   usedAt          DateTime?
@@ -84,6 +87,9 @@ model Order {
   totalPrice      Float
   status          String         @default("PENDING") // "PENDING", "COMPLETED", "FAILED"
   content         String?        // Delivered codes/accounts (e.g. "user:pass")
+  externalOrderId String?
+  externalStatus  String?
+  externalRawResponse String?
   createdAt       DateTime       @default(now())
   expiresAt       DateTime?      // expiration date for tracking subscription renewals
   stockItem       StockItem?
@@ -96,6 +102,8 @@ model ProductOption {
   name       String
   price      Float
   agentPrice Float       @default(0.0)
+  externalPackCode String @default("") // WonDD packcode
+  position   Int         @default(0)
   stockItems StockItem[]
   orders     Order[]
   createdAt  DateTime    @default(now())
@@ -198,3 +206,13 @@ model OtpApp {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 }
+
+model OtpProvider {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "Maily Space หลัก"
+  apiUrl    String   // e.g. "https://api.maily.space/mail/public/mails"
+  domains   String   // comma-separated list, e.g. "lico.moe, rdcw.plus"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+

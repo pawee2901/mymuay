@@ -22,3 +22,4 @@ if (process.env.NODE_ENV === 'production') {
 
 export { prisma };
 export { sendLineNotification } from './lineNotify';
+// Force reload prisma client configuration after schema migration

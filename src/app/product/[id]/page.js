@@ -19,7 +19,10 @@ export default async function ProductPage({ params }) {
         include: {
           stockItems: { where: { isUsed: false } }
         },
-        orderBy: { price: 'asc' }
+        orderBy: [
+          { position: 'asc' },
+          { price: 'asc' }
+        ]
       }
     }
   });
@@ -39,6 +42,7 @@ export default async function ProductPage({ params }) {
     name: product.name,
     description: product.description,
     price: product.price,
+    agentPrice: product.agentPrice || 0.0,
     image: product.image,
     type: product.type,
     categoryName: product.category.name,
@@ -49,6 +53,7 @@ export default async function ProductPage({ params }) {
       id: opt.id,
       name: opt.name,
       price: opt.price,
+      agentPrice: opt.agentPrice || 0.0,
       stockCount: opt.stockItems.length
     }))
   };

@@ -49,3 +49,4 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Failed to serve file' }, { status: 500 });
   }
 }
+0

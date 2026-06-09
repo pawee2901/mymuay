@@ -2,9 +2,13 @@
   "name": "mymuayy",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22 <24"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "seed:games": "node prisma/seed-games.js",
     "start": "next start",
     "lint": "eslint"
   },
@@ -28,6 +32,7 @@
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "node": "^22.22.3",
     "prisma": "^7.8.0",
     "tailwindcss": "^4"
   }

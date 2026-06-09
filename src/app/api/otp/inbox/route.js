@@ -5,10 +5,6 @@ import { simpleParser } from 'mailparser';
 
 export const dynamic = 'force-dynamic';
 
-const MAILY_API_URL = process.env.MAILY_API_URL || 'https://api.maily.space/mail/public/mails';
-const MAILY_DOMAINS = (process.env.MAILY_DOMAINS || 'lico.moe,rdcw.plus,gooddaymail.com,rdcw.co.th')
-  .split(',').map(d => d.trim());
-
 function getDomainId(domain) {
   return domain.trim().replace(/\./g, '');
 }
@@ -90,12 +86,33 @@ export async function GET(request) {
     }
 
     const [accountName, domain] = email.split('@');
+    const lowerDomain = domain.toLowerCase().trim();
 
-    // ── A: Maily Space (public, no password) ────────────────────────────
-    if (MAILY_DOMAINS.includes(domain)) {
+    // Query active providers from DB
+    let activeProviders = [];
+    try {
+      activeProviders = await prisma.otpProvider.findMany({
+        where: { isActive: true }
+      });
+    } catch (dbErr) {
+      console.error('[INBOX] Error fetching providers:', dbErr);
+    }
+
+    // Check if domain matches any active provider
+    let matchedProvider = null;
+    for (const prov of activeProviders) {
+      const provDomains = (prov.domains || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
+      if (provDomains.includes(lowerDomain)) {
+        matchedProvider = prov;
+        break;
+      }
+    }
+
+    // ── A: Dynamic OTP API Provider (Maily Space) ────────────────────────────
+    if (matchedProvider) {
       const domainId = getDomainId(domain);
       const res = await fetch(
-        `${MAILY_API_URL}?accountName=${accountName}&domainId=${domainId}&size=${size}&page=1`,
+        `${matchedProvider.apiUrl}?accountName=${accountName}&domainId=${domainId}&size=${size}&page=1`,
         { cache: 'no-store', headers: { 'Content-Type': 'application/json' } }
       );
       if (!res.ok) {

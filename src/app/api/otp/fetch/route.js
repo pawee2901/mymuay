@@ -12,14 +12,16 @@ function getDomainId(domain) {
   return domain.trim().replace(/\./g, '');
 }
 
-// Supported Maily domains (configurable via env)
-const MAILY_DOMAINS = (process.env.MAILY_DOMAINS || "lico.moe,rdcw.plus,gooddaymail.com,rdcw.co.th")
-  .split(',').map(d => d.trim());
-
-function matchesApp(from, subject, appId) {
+function matchesApp(from, subject, appId, senderList = []) {
   const lf = (from || '').toLowerCase();
   const ls = (subject || '').toLowerCase();
   const la = (appId || '').toLowerCase();
+
+  // If we have custom sender emails configured in DB, prioritize matching them
+  if (senderList && senderList.length > 0) {
+    const matched = senderList.some(email => lf.includes(email) || ls.includes(email));
+    if (matched) return true;
+  }
 
   if (la.includes('netflix')) {
     return lf.includes('netflix') || ls.includes('netflix');
@@ -76,13 +78,47 @@ export async function POST(request) {
 
     const lowerEmail = email.toLowerCase().trim();
     const [accountName, domain] = lowerEmail.split('@');
-    const isMailyDomain = MAILY_DOMAINS.includes(domain);
+    const lowerDomain = domain.toLowerCase().trim();
+
+    // Query active providers from DB
+    let activeProviders = [];
+    try {
+      activeProviders = await prisma.otpProvider.findMany({
+        where: { isActive: true }
+      });
+    } catch (dbErr) {
+      console.error('[FETCH] Error fetching providers:', dbErr);
+    }
+
+    // Check if domain matches any active provider
+    let matchedProvider = null;
+    for (const prov of activeProviders) {
+      const provDomains = (prov.domains || '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
+      if (provDomains.includes(lowerDomain)) {
+        matchedProvider = prov;
+        break;
+      }
+    }
+
+    const isMailyDomain = !!matchedProvider;
 
     let matchingMails = [];
+    let senderList = [];
 
-    if (isMailyDomain) {
+    try {
+      const dbApp = await prisma.otpApp.findUnique({
+        where: { id: appId }
+      });
+      if (dbApp && dbApp.senderEmails) {
+        senderList = dbApp.senderEmails.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      }
+    } catch (err) {
+      console.error('[FETCH] Error loading app config:', err);
+    }
+
+    if (isMailyDomain && matchedProvider) {
       // -------------------------------------------------------
-      // Channel A: Maily Space Public API
+      // Channel A: Dynamic OTP API Provider (Maily Space)
       // -------------------------------------------------------
       const domainId = getDomainId(domain);
 
@@ -93,7 +129,8 @@ export async function POST(request) {
         domainId
       });
 
-      const res = await fetch(`${MAILY_API_URL}?${queryParams}`, {
+      const res = await fetch(`${matchedProvider.apiUrl}?${queryParams}`, {
+
         method: 'GET',
         cache: 'no-store',
         headers: { "Content-Type": "application/json" }
@@ -134,7 +171,7 @@ export async function POST(request) {
 
       // Filter by app
       for (const mail of mails) {
-        if (matchesApp(mail.from, mail.subject, appId)) {
+        if (matchesApp(mail.from, mail.subject, appId, senderList)) {
           const otpCode = extractOtpCode(mail.html, mail.text);
           matchingMails.push({
             id: mail.id || mail._id,
@@ -216,7 +253,7 @@ export async function POST(request) {
             const fromLine = parsed.from?.text || '';
             const subjectLine = parsed.subject || '';
 
-            if (matchesApp(fromLine, subjectLine, appId)) {
+            if (matchesApp(fromLine, subjectLine, appId, senderList)) {
               const htmlBody = parsed.html || parsed.textAsHtml || parsed.text || '';
               const otpCode = extractOtpCode(htmlBody, parsed.text || '');
 

@@ -37,8 +37,8 @@ export default function DepositPage() {
 
   const [bankDetails, setBankDetails] = useState({
     bankName: 'ธนาคารกสิกรไทย (KASIKORNBANK)',
-    accountNumber: '112-8-94819-3',
-    accountName: 'บริษัท มวยสโตร์ จำกัด (mymuayy Store Co., Ltd.)',
+    accountNumber: '21685536',
+    accountName: 'ปวีณา สอนหมอก',
     qrImageUrl: '',
     bankLogoUrl: ''
   });
@@ -257,18 +257,18 @@ export default function DepositPage() {
               {/* Bank Details */}
               <div className="flex-1 w-full space-y-5">
                 <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center shadow-md relative overflow-hidden shrink-0 border border-slate-100">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center shadow-md relative overflow-hidden shrink-0 border border-slate-100">
                       {bankDetails.bankLogoUrl ? (
                         <img 
                           src={bankDetails.bankLogoUrl} 
                           alt="Bank Logo" 
-                          className="w-full h-full object-contain p-1"
+                          className="w-full h-full object-contain p-1.5"
                         />
                       ) : (
                         <div className="w-full h-full bg-emerald-600 flex items-center justify-center relative overflow-hidden">
-                          <div className="absolute inset-0.5 border border-white/20 rounded-lg flex items-center justify-center">
-                            <Building2 className="w-5 h-5 text-white" />
+                          <div className="absolute inset-1 border border-white/20 rounded-xl flex items-center justify-center">
+                            <Building2 className="w-8 h-8 text-white" />
                           </div>
                         </div>
                       )}
@@ -379,4 +379,3 @@ export default function DepositPage() {
     </div>
   );
 }
-

@@ -18,16 +18,38 @@ import ClientPrice from '@/components/ClientPrice';
 
 export const revalidate = 0; // Disable caching to keep stats and stock count fully live
 
+const fallbackCarouselSlides = [
+  {
+    title: 'mymuayy STORE',
+    description: 'ระบบร้านค้าออนไลน์พร้อมใช้งาน เมื่อเชื่อมต่อฐานข้อมูลเรียบร้อยแล้วข้อมูลจริงจะแสดงอัตโนมัติ',
+    badge: 'STORE READY',
+    iconName: 'Sparkles',
+    bgGradient: 'from-slate-900 to-indigo-950',
+    btnText: 'เลือกซื้อสินค้า',
+    image: 'https://img.rdcw.co.th/images/cebd465433a2364d61bd4b7c8bd36e831b04e1ea0c86a752f66f4e686f81b5d5.jpeg'
+  }
+];
+
 export default async function Home() {
+  let totalUsers = 0;
+  let totalProducts = 0;
+  let totalStock = 0;
+  let totalSold = 0;
+  let ctaCards = [];
+  let carouselSlides = fallbackCarouselSlides;
+  let categories = [];
+  let products = [];
+
+  try {
   // Fetch stats directly from SQLite using Prisma
-  const totalUsers = await prisma.user.count();
-  const totalProducts = await prisma.product.count();
-  const totalStock = await prisma.stockItem.count({ where: { isUsed: false } });
-  const ctaCards = prisma.ctaCard 
+  totalUsers = await prisma.user.count();
+  totalProducts = await prisma.product.count();
+  totalStock = await prisma.stockItem.count({ where: { isUsed: false } });
+  ctaCards = prisma.ctaCard 
     ? await prisma.ctaCard.findMany({ orderBy: { id: 'asc' } }) 
     : [];
 
-  let carouselSlides = await prisma.carouselSlide.findMany({
+  carouselSlides = await prisma.carouselSlide.findMany({
     orderBy: { createdAt: 'asc' }
   });
 
@@ -76,12 +98,18 @@ export default async function Home() {
     where: { status: 'COMPLETED' },
     select: { quantity: true }
   });
-  const totalSold = completedOrders.reduce((sum, order) => sum + order.quantity, 0);
+  totalSold = completedOrders.reduce((sum, order) => sum + order.quantity, 0);
 
-  // Fetch categories with product counts
-  const categories = await prisma.category.findMany({
+  // Fetch categories with product counts (only categories that have ACCOUNT products)
+  categories = await prisma.category.findMany({
+    where: {
+      products: {
+        some: { type: 'ACCOUNT' }
+      }
+    },
     include: {
       products: {
+        where: { type: 'ACCOUNT' },
         include: {
           stockItems: { where: { isUsed: false } }
         }
@@ -89,8 +117,9 @@ export default async function Home() {
     }
   });
 
-  // Fetch featured products with stock status
-  const products = await prisma.product.findMany({
+  // Fetch featured products with stock status (only ACCOUNT / premium apps)
+  products = await prisma.product.findMany({
+    where: { type: 'ACCOUNT' },
     include: {
       category: true,
       stockItems: { where: { isUsed: false } },
@@ -98,6 +127,9 @@ export default async function Home() {
     },
     take: 12
   });
+  } catch (error) {
+    console.error('Failed to load home data', error);
+  }
 
   return (
     <div className="flex-1 w-full bg-slate-50/50 pb-16 font-sans">
@@ -158,6 +190,7 @@ export default async function Home() {
       </div>
 
       {/* 4. Featured Categories Folders */}
+      {categories.length > 0 && (
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 mt-12">
         <div className="flex items-center justify-between">
           <div>
@@ -218,8 +251,10 @@ export default async function Home() {
           })}
         </div>
       </div>
+      )}
 
       {/* 5. Featured Products Grid */}
+      {products.length > 0 && (
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 mt-12">
         <div className="flex items-center justify-between">
           <div>
@@ -307,6 +342,7 @@ export default async function Home() {
           })}
         </div>
       </div>
+      )}
       
     </div>
   );

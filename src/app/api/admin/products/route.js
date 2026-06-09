@@ -24,7 +24,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { name, description, price, agentPrice, image, type, categoryId, subCategoryId } = body;
+    const { name, description, price, agentPrice, image, type, categoryId, subCategoryId, gameServiceCode, externalPackCode } = body;
 
     if (!name || !description || !price || !image || !type || !categoryId) {
       return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง' }, { status: 400 });
@@ -38,6 +38,8 @@ export async function POST(request) {
         agentPrice: parseFloat(agentPrice) || 0.0,
         image,
         type,
+        gameServiceCode: type === 'TOPUP' ? (gameServiceCode || '').trim() : '',
+        externalPackCode: type === 'TOPUP' ? (externalPackCode || '').trim() : '',
         categoryId,
         subCategoryId: subCategoryId || null,
       }
@@ -59,7 +61,7 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const { id, name, description, price, agentPrice, image, type, categoryId, subCategoryId } = body;
+    const { id, name, description, price, agentPrice, image, type, categoryId, subCategoryId, gameServiceCode, externalPackCode } = body;
 
     if (!id || !name || !description || price === undefined || !image || !type || !categoryId) {
       return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง' }, { status: 400 });
@@ -74,6 +76,8 @@ export async function PUT(request) {
         agentPrice: parseFloat(agentPrice) || 0.0,
         image,
         type,
+        gameServiceCode: type === 'TOPUP' ? (gameServiceCode || '').trim() : '',
+        externalPackCode: type === 'TOPUP' ? (externalPackCode || '').trim() : '',
         categoryId,
         subCategoryId: subCategoryId || null,
       }

@@ -4,6 +4,9 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { prisma } from "@/db";
+import Script from "next/script";
+
+const defaultSiteSetting = { storeName: 'mymuayy', logoUrl: '' };
 
 const prompt = Prompt({
   variable: "--font-prompt",
@@ -17,7 +20,7 @@ const inter = Inter({
 });
 
 export async function generateMetadata() {
-  const setting = await prisma.siteSetting.findUnique({ where: { id: 'default' } });
+  const setting = await getSiteSetting();
   const storeName = setting?.storeName || "mymuayy";
   
   return {
@@ -26,9 +29,18 @@ export async function generateMetadata() {
   };
 }
 
+async function getSiteSetting() {
+  try {
+    return await prisma.siteSetting.findUnique({ where: { id: 'default' } });
+  } catch (error) {
+    console.error('Failed to load site setting', error);
+    return defaultSiteSetting;
+  }
+}
+
 export default async function RootLayout({ children }) {
-  const setting = await prisma.siteSetting.findUnique({ where: { id: 'default' } });
-  const siteSetting = setting || { storeName: 'mymuayy', logoUrl: '' };
+  const setting = await getSiteSetting();
+  const siteSetting = setting || defaultSiteSetting;
 
   return (
     <html
@@ -36,36 +48,38 @@ export default async function RootLayout({ children }) {
       className={`${prompt.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#f0f6ff] text-[#0f1e3d]">
-        <script dangerouslySetInnerHTML={{ __html: `
-          // Disable right click context menu
-          document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-          }, false);
-          
-          // Disable common DevTools shortcuts
-          document.addEventListener('keydown', function(e) {
-            // F12 key
-            if (e.keyCode === 123) {
+        <Script id="disable-devtools" strategy="afterInteractive">
+          {`
+            // Disable right click context menu
+            document.addEventListener('contextmenu', function(e) {
               e.preventDefault();
-              return false;
-            }
-            // Ctrl+Shift+I (Inspect elements), Ctrl+Shift+J (Console), Ctrl+Shift+C (Inspect elements pointer)
-            if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) {
-              e.preventDefault();
-              return false;
-            }
-            // Ctrl+U (View Source code)
-            if (e.ctrlKey && e.keyCode === 85) {
-              e.preventDefault();
-              return false;
-            }
-            // Ctrl+S (Save page HTML/resources)
-            if (e.ctrlKey && e.keyCode === 83) {
-              e.preventDefault();
-              return false;
-            }
-          }, false);
-        ` }} />
+            }, false);
+            
+            // Disable common DevTools shortcuts
+            document.addEventListener('keydown', function(e) {
+              // F12 key
+              if (e.keyCode === 123) {
+                e.preventDefault();
+                return false;
+              }
+              // Ctrl+Shift+I (Inspect elements), Ctrl+Shift+J (Console), Ctrl+Shift+C (Inspect elements pointer)
+              if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) {
+                e.preventDefault();
+                return false;
+              }
+              // Ctrl+U (View Source code)
+              if (e.ctrlKey && e.keyCode === 85) {
+                e.preventDefault();
+                return false;
+              }
+              // Ctrl+S (Save page HTML/resources)
+              if (e.ctrlKey && e.keyCode === 83) {
+                e.preventDefault();
+                return false;
+              }
+            }, false);
+          `}
+        </Script>
         <Header siteSetting={siteSetting} />
         <main className="flex-1 flex flex-col">
           {children}

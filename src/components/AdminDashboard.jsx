@@ -25,7 +25,8 @@ import {
   Mail,
   Settings,
   KeyRound,
-  List
+  List,
+  Gamepad2
 } from 'lucide-react';
 import EmailSettingsPanel from '@/components/EmailSettingsPanel';
 import Swal from 'sweetalert2';
@@ -134,6 +135,9 @@ export default function AdminDashboard({ categories, subcategories = [], product
   const [newOptionName, setNewOptionName] = useState('');
   const [newOptionPrice, setNewOptionPrice] = useState('');
   const [newOptionAgentPrice, setNewOptionAgentPrice] = useState('');
+  const [newOptionExternalPackCode, setNewOptionExternalPackCode] = useState('');
+  const [newOptionPosition, setNewOptionPosition] = useState(0);
+  const [editingOptionId, setEditingOptionId] = useState(null);
   const [selectedOptionIdForStock, setSelectedOptionIdForStock] = useState('');
 
   // Deposit edit state
@@ -428,11 +432,54 @@ export default function AdminDashboard({ categories, subcategories = [], product
   const [newProdAgentPrice, setNewProdAgentPrice] = useState('');
   const [newProdImage, setNewProdImage] = useState('');
   const [newProdType, setNewProdType] = useState('ACCOUNT');
+  const [newProdGameServiceCode, setNewProdGameServiceCode] = useState('');
+  const [newProdExternalPackCode, setNewProdExternalPackCode] = useState('');
   const [newProdCatId, setNewProdCatId] = useState(categories[0]?.id || '');
   const [newProdSubCatId, setNewProdSubCatId] = useState('');
 
   // Edit Product Form state
   const [editingProdId, setEditingProdId] = useState(null);
+
+  const isGameManager = activeTab === 'games';
+  const managedProductType = isGameManager ? 'TOPUP' : 'ACCOUNT';
+  const managedProducts = products.filter((prod) => prod.type === managedProductType);
+  const productTypesByCategoryId = products.reduce((acc, prod) => {
+    if (!acc[prod.categoryId]) acc[prod.categoryId] = new Set();
+    acc[prod.categoryId].add(prod.type);
+    return acc;
+  }, {});
+  const managedCategories = categories.filter((cat) =>
+    managedProducts.some((prod) => prod.categoryId === cat.id)
+  );
+  const visibleCategoryFilters = managedCategories.length > 0 ? managedCategories : categories;
+  const visibleProductCategories = categories.filter((cat) => {
+    const productTypes = productTypesByCategoryId[cat.id];
+    return !productTypes || productTypes.has(managedProductType);
+  });
+
+  useEffect(() => {
+    if (activeTab !== 'products' && activeTab !== 'games') return;
+    if (editingProdId) return;
+
+    setNewProdType(managedProductType);
+  }, [activeTab, editingProdId, managedProductType]);
+
+  useEffect(() => {
+    if (activeTab !== 'products' && activeTab !== 'games') return;
+    if (!productCategoryFilter) return;
+    if (visibleCategoryFilters.some((cat) => cat.id === productCategoryFilter)) return;
+
+    setProductCategoryFilter('');
+  }, [activeTab, productCategoryFilter, visibleCategoryFilters]);
+
+  useEffect(() => {
+    if (activeTab !== 'products' && activeTab !== 'games') return;
+    if (editingProdId) return;
+    if (visibleProductCategories.some((cat) => cat.id === newProdCatId)) return;
+
+    setNewProdCatId(visibleProductCategories[0]?.id || categories[0]?.id || '');
+    setNewProdSubCatId('');
+  }, [activeTab, categories, editingProdId, newProdCatId, visibleProductCategories]);
 
   const handleStartEditProduct = (prod) => {
     setEditingProdId(prod.id);
@@ -442,6 +489,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
     setNewProdAgentPrice((prod.agentPrice || 0).toString());
     setNewProdImage(prod.image);
     setNewProdType(prod.type);
+    setNewProdGameServiceCode(prod.gameServiceCode || '');
+    setNewProdExternalPackCode(prod.externalPackCode || '');
     
     // Find category ID matching the categoryName or categoryId
     const cat = categories.find(c => c.name === prod.categoryName);
@@ -461,6 +510,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
     setNewProdAgentPrice('');
     setNewProdImage('');
     setNewProdType('ACCOUNT');
+    setNewProdGameServiceCode('');
+    setNewProdExternalPackCode('');
     setNewProdCatId(categories[0]?.id || '');
     setNewProdSubCatId('');
   };
@@ -868,14 +919,80 @@ export default function AdminDashboard({ categories, subcategories = [], product
     setIsLoading(true);
 
     try {
+      const isEdit = !!editingOptionId;
+      const url = '/api/admin/options';
+      const method = isEdit ? 'PUT' : 'POST';
+      const body = {
+        name: newOptionName,
+        price: newOptionPrice,
+        agentPrice: newOptionAgentPrice || '0',
+        externalPackCode: newOptionExternalPackCode,
+        position: newOptionPosition
+      };
+      if (isEdit) {
+        body.id = editingOptionId;
+      } else {
+        body.productId = editingProdId;
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      setIsLoading(false);
+
+      if (res.ok) {
+        setSuccessMsg(isEdit ? 'แก้ไขตัวเลือกสินค้าสำเร็จ!' : `เพิ่มตัวเลือกสินค้า "${newOptionName}" สำเร็จ!`);
+        setNewOptionName('');
+        setNewOptionPrice('');
+        setNewOptionAgentPrice('');
+        setNewOptionExternalPackCode('');
+        setNewOptionPosition(0);
+        setEditingOptionId(null);
+        router.refresh();
+      } else {
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการบันทึกตัวเลือกสินค้า');
+      }
+    } catch (err) {
+      console.error(err);
+      setIsLoading(false);
+      setErrorMsg('เครือข่ายขัดข้อง');
+    }
+  };
+
+  const handleStartEditOption = (opt) => {
+    setEditingOptionId(opt.id);
+    setNewOptionName(opt.name);
+    setNewOptionPrice(opt.price.toString());
+    setNewOptionAgentPrice((opt.agentPrice || 0).toString());
+    setNewOptionExternalPackCode(opt.externalPackCode || '');
+    setNewOptionPosition(opt.position || 0);
+  };
+
+  const handleCancelEditOption = () => {
+    setEditingOptionId(null);
+    setNewOptionName('');
+    setNewOptionPrice('');
+    setNewOptionAgentPrice('');
+    setNewOptionExternalPackCode('');
+    setNewOptionPosition(0);
+  };
+
+  const handleUpdateOptionPosition = async (optionId, newPosition) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    setIsLoading(true);
+
+    try {
       const res = await fetch('/api/admin/options', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: editingProdId,
-          name: newOptionName,
-          price: newOptionPrice,
-          agentPrice: newOptionAgentPrice || '0'
+          id: optionId,
+          position: newPosition
         }),
       });
 
@@ -883,13 +1000,10 @@ export default function AdminDashboard({ categories, subcategories = [], product
       setIsLoading(false);
 
       if (res.ok) {
-        setSuccessMsg(`เพิ่มตัวเลือกสินค้า "${newOptionName}" สำเร็จ!`);
-        setNewOptionName('');
-        setNewOptionPrice('');
-        setNewOptionAgentPrice('');
+        setSuccessMsg('อัปเดตลำดับการแสดงผลเรียบร้อยแล้ว!');
         router.refresh();
       } else {
-        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการสร้างตัวเลือกสินค้า');
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการอัปเดตลำดับตัวเลือกสินค้า');
       }
     } catch (err) {
       console.error(err);
@@ -952,6 +1066,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
         agentPrice: newProdAgentPrice || '0',
         image: newProdImage,
         type: newProdType,
+        gameServiceCode: newProdGameServiceCode,
+        externalPackCode: newProdExternalPackCode,
         categoryId: newProdCatId,
         subCategoryId: newProdSubCatId || null
       };
@@ -1245,13 +1361,34 @@ export default function AdminDashboard({ categories, subcategories = [], product
             สรุปยอดขายและสถิติ
           </button>
           <button 
-            onClick={() => { setActiveTab('products'); setIsMobileMenuOpen(false); }}
+            onClick={() => {
+              setActiveTab('products');
+              setNewProdType('ACCOUNT');
+              setProductCategoryFilter('');
+              setProductSearchQuery('');
+              setIsMobileMenuOpen(false);
+            }}
             className={`flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold rounded-xl transition-premium cursor-pointer ${
               activeTab === 'products' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
             <Layers className="w-4.5 h-4.5" />
-            จัดการสินค้า
+            จัดการแอปพรีเมี่ยม
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('games');
+              setNewProdType('TOPUP');
+              setProductCategoryFilter('');
+              setProductSearchQuery('');
+              setIsMobileMenuOpen(false);
+            }}
+            className={`flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold rounded-xl transition-premium cursor-pointer ${
+              activeTab === 'games' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Gamepad2 className="w-4.5 h-4.5" />
+            จัดการเกม
           </button>
           <button 
             onClick={() => { setActiveTab('stock'); setIsMobileMenuOpen(false); }}
@@ -1462,8 +1599,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
           </div>
         )}
 
-        {/* 2. PRODUCTS TAB (CRUD Forms) */}
-        {activeTab === 'products' && (
+        {/* 2. PRODUCTS / GAMES TAB (CRUD Forms) */}
+        {(activeTab === 'products' || activeTab === 'games') && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
             {/* Left Forms column (Add Product & Category) */}
             <div className="lg:col-span-1 space-y-6">
@@ -1678,7 +1815,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
               <div className="bg-white border border-slate-200/50 rounded-2xl p-5">
                 <h3 className="text-xs font-bold text-slate-800 mb-4 flex items-center gap-1.5">
                   <PlusCircle className="w-4 h-4 text-indigo-500" />
-                  สร้างสินค้าใหม่
+                  {editingProdId ? 'แก้ไขสินค้า' : isGameManager ? 'เพิ่มเกมใหม่' : 'เพิ่มแอปพรีเมี่ยมใหม่'}
                 </h3>
 
                 {/* Option Creation Guide Box */}
@@ -1752,13 +1889,43 @@ export default function AdminDashboard({ categories, subcategories = [], product
                       <select 
                         value={newProdType}
                         onChange={(e) => setNewProdType(e.target.value)}
+                        disabled={activeTab === 'products' || activeTab === 'games'}
                         className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none"
                       >
-                        <option value="ACCOUNT">ไอดี/คีย์ส่งออโต้</option>
-                        <option value="TOPUP">ระบบเติมเงิน/เกม</option>
+                        <option value="ACCOUNT">แอปพรีเมี่ยม/คีย์ส่งออโต้</option>
+                        <option value="TOPUP">เกม/ระบบเติมอัตโนมัติ</option>
                       </select>
+                      {(activeTab === 'products' || activeTab === 'games') && (
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {isGameManager ? 'ล็อกเป็นประเภทเกม เพื่อแยกจากแอปพรีเมี่ยม' : 'ล็อกเป็นประเภทแอปพรีเมี่ยม เพื่อไม่ปนกับเกม'}
+                        </p>
+                      )}
                     </div>
                   </div>
+                  {newProdType === 'TOPUP' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-emerald-700 mb-1">WonDD servicecode</label>
+                        <input
+                          type="text"
+                          placeholder="เช่น rov, freefire, undawn"
+                          value={newProdGameServiceCode}
+                          onChange={(e) => setNewProdGameServiceCode(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-emerald-100 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-emerald-700 mb-1">WonDD packcode หลัก</label>
+                        <input
+                          type="text"
+                          placeholder="ใส่เมื่อไม่มีตัวเลือกราคา เช่น R00011"
+                          value={newProdExternalPackCode}
+                          onChange={(e) => setNewProdExternalPackCode(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-emerald-100 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพสินค้า (แนะนำ: 500x500 px) / อัปโหลดรูปภาพ</label>
                     <div className="flex gap-2 items-center">
@@ -1805,7 +1972,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                       onChange={(e) => setNewProdCatId(e.target.value)}
                       className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none"
                     >
-                      {categories.map((c) => (
+                      {visibleProductCategories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
@@ -1893,38 +2060,123 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         />
                       </div>
                     </div>
-                    <button 
-                      type="submit" 
-                      disabled={isLoading}
-                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-premium cursor-pointer"
-                    >
-                      เพิ่มตัวเลือกย่อยนี้
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">WonDD packcode</label>
+                        <input
+                          type="text"
+                          placeholder="เช่น R00012"
+                          value={newOptionExternalPackCode}
+                          onChange={(e) => setNewOptionExternalPackCode(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลำดับแสดงผล (น้อยขึ้นก่อน)</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={newOptionPosition}
+                          onChange={(e) => setNewOptionPosition(parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        type="submit" 
+                        disabled={isLoading}
+                        className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-premium cursor-pointer"
+                      >
+                        {editingOptionId ? 'บันทึกการแก้ไข' : 'เพิ่มตัวเลือกย่อยนี้'}
+                      </button>
+                      {editingOptionId && (
+                        <button 
+                          type="button" 
+                          onClick={handleCancelEditOption}
+                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-premium cursor-pointer"
+                        >
+                          ยกเลิก
+                        </button>
+                      )}
+                    </div>
                   </form>
 
                   {/* Options List */}
                   {(() => {
                     const currentProd = products.find(p => p.id === editingProdId);
-                    const optionsList = currentProd?.options || [];
+                    const optionsList = [...(currentProd?.options || [])].sort((a, b) => {
+                      if ((a.position || 0) !== (b.position || 0)) {
+                        return (a.position || 0) - (b.position || 0);
+                      }
+                      return a.price - b.price;
+                    });
                     if (optionsList.length > 0) {
                       return (
                         <div className="mt-4 pt-4 border-t border-slate-100 space-y-2 max-h-48 overflow-y-auto">
                           <span className="text-[10px] font-bold text-slate-400 block mb-1">ตัวเลือกที่มีอยู่ ({optionsList.length})</span>
                           {optionsList.map(opt => (
                             <div key={opt.id} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <span className="text-[10px] font-bold text-slate-700 block truncate">{opt.name}</span>
                                 <span className="text-[9px] text-[#2563eb] block font-black">
                                   ทั่วไป: {opt.price.toLocaleString()} ฿ / ส่ง: {(opt.agentPrice || 0).toLocaleString()} ฿
                                 </span>
+                                {opt.externalPackCode && (
+                                  <span className="text-[9px] text-emerald-600 block font-bold font-mono">packcode: {opt.externalPackCode}</span>
+                                )}
                               </div>
-                              <button 
-                                type="button"
-                                onClick={() => handleDeleteOption(opt.id)}
-                                className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                <div className="flex flex-col gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateOptionPosition(opt.id, (opt.position || 0) - 1)}
+                                    className="p-0.5 hover:bg-slate-200 text-slate-500 rounded text-[7px] leading-none transition-all cursor-pointer font-bold"
+                                    title="ย้ายขึ้น"
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateOptionPosition(opt.id, (opt.position || 0) + 1)}
+                                    className="p-0.5 hover:bg-slate-200 text-slate-500 rounded text-[7px] leading-none transition-all cursor-pointer font-bold"
+                                    title="ย้ายลง"
+                                  >
+                                    ▼
+                                  </button>
+                                </div>
+                                <input
+                                  type="number"
+                                  value={opt.position || 0}
+                                  onChange={async (e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val)) {
+                                      await handleUpdateOptionPosition(opt.id, val);
+                                    }
+                                  }}
+                                  className="w-10 px-1 py-0.5 border border-slate-200 rounded text-[9px] text-center bg-white font-bold"
+                                  title="ลำดับแสดงผล"
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => handleStartEditOption(opt)}
+                                  className={`p-1 rounded transition-all cursor-pointer ${
+                                    editingOptionId === opt.id 
+                                      ? 'bg-blue-50 text-blue-600' 
+                                      : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'
+                                  }`}
+                                  title="แก้ไขตัวเลือก"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  type="button"
+                                  onClick={() => handleDeleteOption(opt.id)}
+                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1943,8 +2195,12 @@ export default function AdminDashboard({ categories, subcategories = [], product
             <div className="lg:col-span-2 bg-white border border-slate-200/50 rounded-2xl p-5 overflow-hidden flex flex-col">
               <div className="flex flex-col gap-3 mb-4">
                 <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Package className="w-4.5 h-4.5 text-indigo-500" />
-                  รายการสินค้าในระบบปัจจุบัน
+                  {isGameManager ? (
+                    <Gamepad2 className="w-4.5 h-4.5 text-indigo-500" />
+                  ) : (
+                    <Package className="w-4.5 h-4.5 text-indigo-500" />
+                  )}
+                  {isGameManager ? 'รายการเกมในระบบ' : 'รายการแอปพรีเมี่ยมในระบบ'}
                 </h3>
                 
                 {/* Search & Filter Bar */}
@@ -1972,8 +2228,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
                       onChange={(e) => setProductCategoryFilter(e.target.value)}
                       className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white text-slate-800 font-medium"
                     >
-                      <option value="">📂 ทุกหมวดหมู่ (ทุกแอป)</option>
-                      {categories.map((c) => (
+                      <option value="">{isGameManager ? '🎮 ทุกหมวดหมู่เกม' : '📂 ทุกหมวดหมู่แอป'}</option>
+                      {visibleCategoryFilters.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
@@ -1995,7 +2251,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                   </thead>
                   <tbody>
                     {(() => {
-                      const filteredProducts = products.filter(prod => {
+                      const filteredProducts = managedProducts.filter(prod => {
                         const matchesSearch = prod.name.toLowerCase().includes(productSearchQuery.toLowerCase()) || 
                                               (prod.description || '').toLowerCase().includes(productSearchQuery.toLowerCase());
                         const matchesCategory = !productCategoryFilter || prod.categoryId === productCategoryFilter;

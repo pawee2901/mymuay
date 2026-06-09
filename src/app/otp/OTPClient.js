@@ -21,8 +21,8 @@ const APP_LIST = [
   { id: 'other',    name: 'ทุกอีเมล',    emoji: '📧', color: '#7c3aed', bg: '#faf5ff', border: '#c4b5fd' },
 ];
 
-const MAILY_DOMAINS = ['lico.moe', 'rdcw.plus', 'gooddaymail.com', 'rdcw.co.th'];
-const isMailyEmail  = (email) => MAILY_DOMAINS.includes((email||'').split('@')[1]?.toLowerCase());
+// MAILY_DOMAINS is now managed dynamically via component state
+
 
 function timeAgo(d) {
   if (!d) return '';
@@ -64,19 +64,73 @@ export default function OTPClient() {
   const [copied, setCopied]     = useState(false);
   const [autoRefresh, setAuto]  = useState(false);
   const autoRef                 = useRef(null);
+  const [appList, setAppList]   = useState(APP_LIST);
+
+  const loadApps = useCallback(async () => {
+    try {
+      const res = await fetch('/api/otp/apps');
+      const data = await res.json();
+      if (data.success && data.apps && data.apps.length > 0) {
+        const mapped = data.apps.map(app => {
+          const std = APP_LIST.find(a => a.id === app.id);
+          return {
+            id: app.id,
+            name: app.name,
+            logoUrl: app.logoUrl,
+            emoji: std?.emoji || '📱',
+            color: std?.color || '#7c3aed',
+            bg: std?.bg || '#faf5ff',
+            border: std?.border || '#e2e8f0',
+          };
+        });
+
+        // Ensure "other" is at the end or included
+        const hasOther = mapped.some(a => a.id === 'other');
+        if (!hasOther) {
+          mapped.push({ id: 'other', name: 'ทุกอีเมล', emoji: '📧', color: '#7c3aed', bg: '#faf5ff', border: '#c4b5fd' });
+        } else {
+          const otherIdx = mapped.findIndex(a => a.id === 'other');
+          const otherItem = mapped.splice(otherIdx, 1)[0];
+          mapped.push(otherItem);
+        }
+        setAppList(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to load dynamic OTP apps:', err);
+    }
+  }, []);
+
+  const [mailyDomains, setMailyDomains] = useState(['lico.moe', 'rdcw.plus', 'gooddaymail.com', 'rdcw.co.th']);
+  const isMailyEmail  = (email) => mailyDomains.includes((email||'').split('@')[1]?.toLowerCase());
+
+  const loadDomains = useCallback(async () => {
+    try {
+      const res = await fetch('/api/otp/providers');
+      const data = await res.json();
+      if (data.success && data.domains && data.domains.length > 0) {
+        setMailyDomains(data.domains);
+      }
+    } catch (err) {
+      console.error('Failed to load dynamic OTP domains:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadApps();
+    loadDomains();
+  }, [loadApps, loadDomains]);
 
   // ─── Read URL params → auto-jump to inbox ─────────────────────────────────
   useEffect(() => {
     const urlEmail = searchParams.get('email');
     const urlApp   = searchParams.get('app');
-    if (urlEmail?.includes('@')) {
-      const app = APP_LIST.find(a => a.id === urlApp) || APP_LIST.find(a => a.id === 'other');
+    if (urlEmail?.includes('@') && appList.length > 0) {
+      const app = appList.find(a => a.id === urlApp) || appList.find(a => a.id === 'other');
       setApp(app);
       setEmail(urlEmail);
       setStep(3); // skip to inbox
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, appList]);
 
   // ─── When step jumps to 3 from URL and inbox is empty → auto-load ─────────
   useEffect(() => {
@@ -215,15 +269,19 @@ export default function OTPClient() {
                 <p className="text-center text-sm font-bold text-slate-600 mb-1">เลือกแอปที่ต้องการรับรหัส</p>
                 <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-slate-200 mx-auto mb-4" />
                 <div className="grid grid-cols-2 gap-3">
-                  {APP_LIST.map(app => (
+                  {appList.map(app => (
                     <motion.button key={app.id}
                       whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}
                       onClick={() => { setApp(app); setStep(2); setError(''); }}
                       className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all"
                       style={{ borderColor:app.border, backgroundColor:app.bg }}>
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-2 shadow-sm"
-                        style={{ backgroundColor:`${app.color}15`, border:`2px solid ${app.border}` }}>
-                        {app.emoji}
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-2 shadow-sm overflow-hidden bg-white"
+                        style={{ borderColor:app.border }}>
+                        {app.logoUrl ? (
+                          <img src={app.logoUrl} alt={app.name} className="w-full h-full object-cover" />
+                        ) : (
+                          app.emoji
+                        )}
                       </div>
                       <span className="text-xs font-bold text-slate-700">{app.name}</span>
                     </motion.button>
@@ -237,7 +295,11 @@ export default function OTPClient() {
               <div>
                 <div className="flex items-center gap-3 mb-5 p-3 rounded-2xl border-2"
                   style={{ backgroundColor:selectedApp.bg, borderColor:selectedApp.border }}>
-                  <span className="text-2xl">{selectedApp.emoji}</span>
+                  {selectedApp.logoUrl ? (
+                    <img src={selectedApp.logoUrl} alt={selectedApp.name} className="w-8 h-8 object-cover rounded-lg shrink-0" />
+                  ) : (
+                    <span className="text-2xl shrink-0">{selectedApp.emoji}</span>
+                  )}
                   <div className="flex-1">
                     <p className="font-bold text-sm text-slate-800">{selectedApp.name}</p>
                     <p className="text-xs text-slate-500">เลือกแล้ว</p>

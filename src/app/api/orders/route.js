@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, sendLineNotification } from '@/db';
 import jwt from 'jsonwebtoken';
+import { topupGame } from '@/lib/wondd';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeyforwebshopphatstorestyle123';
 
@@ -67,6 +68,7 @@ export async function POST(request) {
 
     let orderContent = '';
     let chosenStockItems = [];
+    let externalTopup = null;
 
     // 2. Handle digital accounts delivery (ACCOUNT)
     if (product.type === 'ACCOUNT') {
@@ -115,6 +117,29 @@ export async function POST(request) {
       return NextResponse.json({ error: 'ยอดเงินในกระเป๋าเงินไม่เพียงพอ กรุณาเติมเงินเข้าระบบก่อนทำรายการ' }, { status: 400 });
     }
 
+    if (product.type === 'TOPUP') {
+      const serviceCode = product.gameServiceCode?.trim();
+      const packCode = (chosenOption?.externalPackCode || product.externalPackCode || '').trim();
+
+      try {
+        externalTopup = await topupGame({
+          serviceCode,
+          packCode,
+          gameId: targetId.trim(),
+        });
+      } catch (error) {
+        console.error('WonDD topup error:', error);
+        return NextResponse.json({ error: error.message || 'เติมเกมผ่าน WonDD ไม่สำเร็จ' }, { status: 502 });
+      }
+
+      orderContent = [
+        `เติมเกม ${product.name}${chosenOption ? ` (${chosenOption.name})` : ''} สำเร็จ`,
+        `Player ID / UID: ${targetId}`,
+        `WonDD Order ID: ${externalTopup.orderid || '-'}`,
+        `Packcode: ${packCode}`,
+      ].join('\n');
+    }
+
     // 4. Create Order, deduct balance & Update stock items in a database transaction
     const order = await prisma.$transaction(async (tx) => {
       // Deduct balance from User
@@ -139,6 +164,9 @@ export async function POST(request) {
           totalPrice: totalPrice,
           status: 'COMPLETED',
           content: orderContent,
+          externalOrderId: externalTopup?.orderid || null,
+          externalStatus: externalTopup ? 'accepted' : null,
+          externalRawResponse: externalTopup ? JSON.stringify(externalTopup) : null,
           expiresAt: product.type === 'ACCOUNT' ? expiresAt : null,
         }
       });
