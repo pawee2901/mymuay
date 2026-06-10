@@ -199,9 +199,6 @@ export default function GameTopupView({ game, product }) {
                     <span>{pointLabel}</span>
                   </div>
                   <div className="mt-0.5 text-xs">
-                    {originalPrice > option.price && (
-                      <span className="text-slate-400 line-through mr-1.5">{originalPrice.toLocaleString()} บาท</span>
-                    )}
                     <span className="text-red-500 font-bold">{option.price.toLocaleString()} บาท</span>
                   </div>
                 </button>
