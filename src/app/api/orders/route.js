@@ -234,7 +234,18 @@ export async function POST(request) {
 
     sendLineNotification(msg).catch(err => console.error('Error sending Line Notification:', err));
 
-    return NextResponse.json({ success: true, order });
+    const orderWithStock = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        stockItem: {
+          select: {
+            guideImage: true
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({ success: true, order: orderWithStock || order });
 
   } catch (error) {
     console.error('Order creation error:', error);

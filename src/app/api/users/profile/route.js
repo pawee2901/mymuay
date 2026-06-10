@@ -35,6 +35,11 @@ export async function GET(request) {
               include: {
                 category: true
               }
+            },
+            stockItem: {
+              select: {
+                guideImage: true
+              }
             }
           },
           orderBy: { createdAt: 'desc' }

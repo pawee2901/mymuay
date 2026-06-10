@@ -31,7 +31,9 @@ export default function ProductView({ product }) {
   const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, checking, completed, failed
   const [errorMsg, setErrorMsg] = useState('');
   const [deliveredContent, setDeliveredContent] = useState('');
+  const [guideImage, setGuideImage] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showGuideLightbox, setShowGuideLightbox] = useState(false);
 
   // Product Option Selection State (default to first option if exists)
   const [selectedOptionId, setSelectedOptionId] = useState(
@@ -126,6 +128,7 @@ export default function ProductView({ product }) {
         if (res.ok) {
           setPaymentStatus('completed');
           setDeliveredContent(data.order.content);
+          setGuideImage(data.order.stockItem?.guideImage || null);
         } else {
           setPaymentStatus('failed');
           setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการตรวจสอบยอดเงิน');
@@ -496,16 +499,34 @@ export default function ProductView({ product }) {
                   </button>
                 </div>
 
-                <button 
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    // Force refresh to update stock counts
-                    window.location.reload();
-                  }}
-                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-premium cursor-pointer"
-                >
-                  ปิดหน้าต่างนี้
-                </button>
+                {/* Guide Image display */}
+                {guideImage && (
+                  <div className="w-full text-left mb-4 -mt-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">วิธีการเข้าใช้งาน / ภาพแนะนำ:</p>
+                    <div 
+                      onClick={() => setShowGuideLightbox(true)}
+                      className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1 cursor-pointer hover:opacity-95 transition-all"
+                      title="คลิกเพื่อดูรูปภาพขนาดใหญ่"
+                    >
+                      <img 
+                        src={guideImage} 
+                        alt="วิธีการเข้าใช้งาน" 
+                        className="w-full object-contain max-h-[200px] rounded-lg" 
+                      />
+                    </div>
+                    <p className="text-[8px] text-slate-400 text-center mt-1">💡 คลิกที่รูปภาพด้านบนเพื่อขยายใหญ่</p>
+                  </div>
+                )}
+
+                 <button 
+                   onClick={() => {
+                     setShowPaymentModal(false);
+                     router.push('/profile');
+                   }}
+                   className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-premium cursor-pointer"
+                 >
+                   ปิดและไปที่ประวัติการสั่งซื้อ
+                 </button>
 
                 {/* OTP Button — แสดงเมื่อ content มี email */}
                 {(() => {
@@ -553,6 +574,35 @@ export default function ProductView({ product }) {
 
           </div>
 
+        </div>
+      )}
+      
+      {/* Lightbox Modal */}
+      {showGuideLightbox && guideImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-fadeIn"
+          onClick={() => setShowGuideLightbox(false)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl p-2 border border-slate-700/10 overflow-hidden shadow-2xl flex flex-col animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowGuideLightbox(false)}
+              className="absolute top-3 right-3 z-50 w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900/80 text-white flex items-center justify-center cursor-pointer transition-colors shadow-sm font-bold border-none"
+              title="ปิด"
+            >
+              ✕
+            </button>
+            <div className="overflow-y-auto max-h-[85vh] p-1 flex justify-center items-center">
+              <img 
+                src={guideImage} 
+                alt="วิธีการเข้าใช้งาน" 
+                className="max-w-full max-h-[80vh] object-contain rounded-lg" 
+              />
+            </div>
+          </div>
         </div>
       )}
       

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/db';
+import { prisma, sendLineNotification } from '@/db';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeyforwebshopphatstorestyle123';
@@ -113,6 +113,16 @@ export async function POST(request) {
           mediaType: mediaType || null,
         },
       });
+
+      // Send LINE notification if sender is not admin
+      if (user.role !== 'ADMIN') {
+        const lineMsg = `💬 [แชทกลุ่มร้านค้า]\n` +
+                        `• ผู้ส่ง: ${user.username} (ID: ${user.userId})\n` +
+                        `• ข้อความ: ${newMessage.message || '[ส่งสื่อ/รูปภาพ/วิดีโอ]'}` +
+                        (mediaUrl ? `\n• แนบไฟล์: ${mediaType} (${mediaUrl})` : '');
+        sendLineNotification(lineMsg).catch(err => console.error('Error sending Chat LINE Notification:', err));
+      }
+
       return NextResponse.json({ success: true, message: newMessage });
     }
 
@@ -141,6 +151,16 @@ export async function POST(request) {
           mediaType: mediaType || null,
         },
       });
+
+      // Send LINE notification if sender is not admin (i.e. it is the customer opening/replying to a ticket)
+      if (!msgIsAdmin) {
+        const lineMsg = `💬 [ติดต่อสอบถาม / Support]\n` +
+                        `• ลูกค้า: ${user.username} (ID: ${user.userId})\n` +
+                        `• ข้อความ: ${newMessage.message || '[ส่งสื่อ/รูปภาพ/วิดีโอ]'}` +
+                        (mediaUrl ? `\n• แนบไฟล์: ${mediaType} (${mediaUrl})` : '');
+        sendLineNotification(lineMsg).catch(err => console.error('Error sending Support Chat LINE Notification:', err));
+      }
+
       return NextResponse.json({ success: true, message: newMessage });
     }
 

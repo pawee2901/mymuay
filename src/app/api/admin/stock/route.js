@@ -24,7 +24,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { productId, productOptionId, stockLines, isMultiLine } = body;
+    const { productId, productOptionId, stockLines, isMultiLine, guideImage, splitMode } = body;
 
     if (!productId || !stockLines) {
       return NextResponse.json({ error: 'กรุณาระบุรหัสสินค้าและป้อนรหัสสต๊อก' }, { status: 400 });
@@ -48,16 +48,43 @@ export async function POST(request) {
 
     // Parse lines based on mode
     let lines = [];
-    if (isMultiLine) {
-      const trimmed = stockLines.trim();
-      if (trimmed) {
-        lines = [trimmed];
+    if (splitMode) {
+      if (splitMode === 'none') {
+        const trimmed = stockLines.trim();
+        if (trimmed) {
+          lines = [trimmed];
+        }
+      } else if (splitMode === 'blank') {
+        // Split by double newline or multiple consecutive newlines (handling CRLF and LF)
+        lines = stockLines
+          .split(/\r?\n\s*\r?\n/)
+          .map(block => block.trim())
+          .filter(block => block.length > 0);
+      } else if (splitMode === 'delimiter') {
+        // Split by a line containing only --- (allowing space around)
+        lines = stockLines
+          .split(/\r?\n\s*---\s*(?:\r?\n|$)/)
+          .map(block => block.trim())
+          .filter(block => block.length > 0);
+      } else if (splitMode === 'line') {
+        lines = stockLines
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
       }
     } else {
-      lines = stockLines
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+      // Fallback to old boolean isMultiLine
+      if (isMultiLine) {
+        const trimmed = stockLines.trim();
+        if (trimmed) {
+          lines = [trimmed];
+        }
+      } else {
+        lines = stockLines
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+      }
     }
 
     if (lines.length === 0) {
@@ -69,6 +96,7 @@ export async function POST(request) {
       productId,
       productOptionId: productOptionId || null,
       content,
+      guideImage: guideImage || null,
     }));
 
     const result = await prisma.stockItem.createMany({
@@ -118,6 +146,7 @@ export async function GET(request) {
       select: {
         id: true,
         content: true,
+        guideImage: true,
         productOptionId: true,
         createdAt: true
       }

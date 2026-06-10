@@ -17,6 +17,7 @@ export default function ProfilePage() {
   // Modal state
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showGuideLightbox, setShowGuideLightbox] = useState(false);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -495,6 +496,26 @@ export default function ProfilePage() {
                       {selectedOrder.content}
                     </p>
                   </div>
+
+                  {/* Guide Image display */}
+                  {selectedOrder.stockItem?.guideImage && (
+                    <div className="mt-4">
+                      <p className="text-xs text-slate-500 font-medium mb-1.5">วิธีการเข้าใช้งาน / ภาพแนะนำ:</p>
+                      <div 
+                        onClick={() => setShowGuideLightbox(true)}
+                        className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1 cursor-pointer hover:opacity-95 transition-all"
+                        title="คลิกเพื่อดูรูปภาพขนาดใหญ่"
+                      >
+                        <img 
+                          src={selectedOrder.stockItem.guideImage} 
+                          alt="วิธีการเข้าใช้งาน" 
+                          className="w-full object-contain max-h-[300px] rounded-lg" 
+                        />
+                      </div>
+                      <p className="text-[9px] text-slate-400 text-center mt-1">💡 คลิกที่รูปภาพด้านบนเพื่อขยายใหญ่</p>
+                    </div>
+                  )}
+
                   <p className="text-[10px] text-slate-400 text-center mt-2">
                     ข้อมูลนี้เป็นข้อมูลจากทางร้านค้า โปรดตรวจสอบข้อมูลก่อนยืนยัน
                   </p>
@@ -525,6 +546,35 @@ export default function ProfilePage() {
                   คัดลอกข้อมูล
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {showGuideLightbox && selectedOrder?.stockItem?.guideImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-fadeIn"
+          onClick={() => setShowGuideLightbox(false)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl p-2 border border-slate-700/10 overflow-hidden shadow-2xl flex flex-col animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowGuideLightbox(false)}
+              className="absolute top-3 right-3 z-50 w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900/80 text-white flex items-center justify-center cursor-pointer transition-colors shadow-sm font-bold border-none"
+              title="ปิด"
+            >
+              ✕
+            </button>
+            <div className="overflow-y-auto max-h-[85vh] p-1 flex justify-center items-center">
+              <img 
+                src={selectedOrder.stockItem.guideImage} 
+                alt="วิธีการเข้าใช้งาน" 
+                className="max-w-full max-h-[80vh] object-contain rounded-lg" 
+              />
             </div>
           </div>
         </div>

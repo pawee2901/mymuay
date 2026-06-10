@@ -520,6 +520,59 @@ export default function AdminDashboard({ categories, subcategories = [], product
   const [selectedProdId, setSelectedProdId] = useState(products[0]?.id || '');
   const [stockLines, setStockLines] = useState('');
   const [isMultiLineStock, setIsMultiLineStock] = useState(false);
+  const [splitMode, setSplitMode] = useState('line'); // 'line', 'blank', 'delimiter', 'none'
+  const [guideImageUrl, setGuideImageUrl] = useState('');
+  const [uploadingGuideImage, setUploadingGuideImage] = useState(false);
+  const [lightboxImageUrl, setLightboxImageUrl] = useState(null);
+
+  const handleGuideImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      Swal.fire({
+        title: 'ไฟล์ไม่ถูกต้อง',
+        text: 'กรุณาเลือกเฉพาะไฟล์รูปภาพ (png, jpg, jpeg) เท่านั้น',
+        icon: 'warning',
+        confirmButtonColor: '#4f46e5'
+      });
+      return;
+    }
+
+    setUploadingGuideImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+      }
+
+      setGuideImageUrl(data.url);
+      Swal.fire({
+        title: 'อัปโหลดสำเร็จ',
+        text: 'อัปโหลดภาพวิธีการเข้าเรียบร้อยแล้ว',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      Swal.fire({
+        title: 'อัปโหลดล้มเหลว',
+        text: err.message,
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
+    } finally {
+      setUploadingGuideImage(false);
+    }
+  };
 
   // Auto-select first option when product selection changes in stock replenishment
   useEffect(() => {
@@ -1152,7 +1205,9 @@ export default function AdminDashboard({ categories, subcategories = [], product
           productId: selectedProdId,
           productOptionId: selectedOptionIdForStock || null,
           stockLines,
-          isMultiLine: isMultiLineStock
+          isMultiLine: splitMode !== 'line',
+          splitMode,
+          guideImage: guideImageUrl || null
         }),
       });
       const data = await res.json();
@@ -1161,6 +1216,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
       if (res.ok) {
         setSuccessMsg(`เติมคีย์สต๊อกสำเร็จ! เพิ่มเข้าระบบจำนวน ${data.addedCount} ชิ้น`);
         setStockLines('');
+        setGuideImageUrl('');
         fetchStockItems(selectedProdId, selectedOptionIdForStock);
         router.refresh();
       } else {
@@ -2374,34 +2430,122 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     );
                   })()}
 
-                  <div className="flex items-center gap-2 mb-1 select-none">
-                    <input 
-                      type="checkbox" 
-                      id="isMultiLineStock"
-                      checked={isMultiLineStock}
-                      onChange={(e) => setIsMultiLineStock(e.target.checked)}
-                      className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-                    />
-                    <label htmlFor="isMultiLineStock" className="text-[10px] font-bold text-slate-600 cursor-pointer">
-                      ป้อนสต๊อกแบบหลายบรรทัด (1 กล่องข้อความ = 1 สต๊อก)
-                    </label>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">รูปแบบการแบ่งรายการสต๊อก</label>
+                    <div className="grid grid-cols-2 gap-2 mb-3 select-none">
+                      <button
+                        type="button"
+                        onClick={() => setSplitMode('line')}
+                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
+                          splitMode === 'line' 
+                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        }`}
+                      >
+                        <div className="text-[10px]">1 บรรทัด = 1 สต๊อก</div>
+                        <div className="text-[8px] opacity-80 font-normal mt-0.5">แบ่งรายการทุกๆ ขึ้นบรรทัดใหม่</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSplitMode('blank')}
+                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
+                          splitMode === 'blank' 
+                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        }`}
+                      >
+                        <div className="text-[10px]">เว้นบรรทัดว่าง = แยกสต๊อก</div>
+                        <div className="text-[8px] opacity-80 font-normal mt-0.5">1 รายการมีได้หลายบรรทัด</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSplitMode('delimiter')}
+                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
+                          splitMode === 'delimiter' 
+                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        }`}
+                      >
+                        <div className="text-[10px]">แยกด้วยเครื่องหมาย ---</div>
+                        <div className="text-[8px] opacity-80 font-normal mt-0.5">ใช้บรรทัด --- เพื่อแยกคีย์</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSplitMode('none')}
+                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
+                          splitMode === 'none' 
+                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                        }`}
+                      >
+                        <div className="text-[10px]">ทั้งหมด = 1 สต๊อก</div>
+                        <div className="text-[8px] opacity-80 font-normal mt-0.5">ไม่แยก ทุกบรรทัดคือคีย์เดียวกัน</div>
+                      </button>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                      {isMultiLineStock ? 'ป้อนรายละเอียดคีย์สต๊อกแบบหลายบรรทัด (ทั้งหมดนี้จะนับเป็น 1 สต๊อก)' : 'ป้อนรหัสคีย์สินค้า (วางทีละบรรทัด)'}
+                      {splitMode === 'line' && 'ป้อนรหัสคีย์สินค้า (วางทีละบรรทัด)'}
+                      {splitMode === 'blank' && 'ป้อนคีย์สต๊อกแบบหลายบรรทัด (เว้นบรรทัดว่างเพื่อแยกแต่ละชิ้น)'}
+                      {splitMode === 'delimiter' && 'ป้อนคีย์สต๊อกแบบหลายบรรทัด (ใช้ --- เพื่อแยกแต่ละชิ้น)'}
+                      {splitMode === 'none' && 'ป้อนรายละเอียดคีย์สต๊อกแบบหลายบรรทัด (ทั้งหมดนี้จะนับเป็น 1 สต๊อก)'}
                     </label>
                     <p className="text-[9px] text-slate-400 mb-1 font-light">
-                      {isMultiLineStock ? 'ข้อความทั้งหมดในกล่องจะถูกส่งให้ลูกค้าเป็น 1 รายการสั่งซื้อ' : '1 บรรทัดจะเท่ากับสต๊อกสินค้า 1 ชิ้น เช่น: email:password หรือ รหัสบัตร'}
+                      {splitMode === 'line' && '1 บรรทัดจะเท่ากับสต๊อกสินค้า 1 ชิ้น เช่น: email:password หรือ รหัสคีย์'}
+                      {splitMode === 'blank' && 'แต่ละสต๊อกมีหลายบรรทัดได้ โดยเว้น 1 บรรทัดว่างเพื่อเริ่มสต๊อกถัดไป'}
+                      {splitMode === 'delimiter' && 'แต่ละสต๊อกมีหลายบรรทัดได้ โดยใส่ --- คั่นกลางระหว่างสต๊อก'}
+                      {splitMode === 'none' && 'ข้อความทั้งหมดในกล่องจะถูกส่งให้ลูกค้าเป็น 1 รายการสั่งซื้อ'}
                     </p>
                     <textarea 
                       required
                       rows="8"
-                      placeholder={isMultiLineStock ? "ตัวอย่างเช่น:&#10;อีเมล: client@test.com&#10;รหัสผ่าน: pass1234&#10;หมายเหตุ: ห้ามเปลี่ยนแปลงข้อมูลบัญชีเด็ดขาด" : "เช่น&#10;user1@netflix.com:pass123&#10;user2@netflix.com:pass456&#10;user3@netflix.com:pass789"} 
+                      placeholder={
+                        splitMode === 'line' ? "เช่น\nuser1@netflix.com:pass123\nuser2@netflix.com:pass456" :
+                        splitMode === 'blank' ? "ตัวอย่างการพิมพ์:\nอีเมล: client1@test.com\nรหัสผ่าน: pass123\n\nอีเมล: client2@test.com\nรหัสผ่าน: pass456" :
+                        splitMode === 'delimiter' ? "ตัวอย่างการพิมพ์:\nอีเมล: client1@test.com\nรหัสผ่าน: pass123\n---\nอีเมล: client2@test.com\nรหัสผ่าน: pass456" :
+                        "ตัวอย่างการพิมพ์:\nอีเมล: client@test.com\nรหัสผ่าน: pass1234\nหมายเหตุ: ห้ามเปลี่ยนแปลงข้อมูลบัญชีเด็ดขาด"
+                      }
                       value={stockLines}
                       onChange={(e) => setStockLines(e.target.value)}
                       className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
                     />
+                  </div>
+
+                  {/* Guide Image Uploader */}
+                  <div className="bg-slate-50 border border-slate-200/50 rounded-xl p-3 space-y-2">
+                    <label className="block text-[10px] font-bold text-slate-600">รูปภาพวิธีการเข้าใช้งาน / คำแนะนำเพิ่มเติม (ไม่บังคับ)</label>
+                    <div className="flex items-center gap-3">
+                      {guideImageUrl ? (
+                        <div className="w-14 h-14 rounded-lg border border-slate-200 bg-white overflow-hidden shrink-0 relative group">
+                          <img src={guideImageUrl} alt="Guide preview" className="w-full h-full object-cover" />
+                          <button 
+                            type="button" 
+                            onClick={() => setGuideImageUrl('')} 
+                            className="absolute inset-0 bg-black/60 text-white text-[9px] font-bold opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                          >
+                            ลบรูป
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg border-2 border-dashed border-slate-300 bg-white flex items-center justify-center text-[10px] text-slate-400 shrink-0 select-none">
+                          ไม่มีรูป
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <label className="inline-flex items-center justify-center px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-[10px] font-bold rounded-lg cursor-pointer transition-all">
+                          {uploadingGuideImage ? 'กำลังอัปโหลด...' : 'เลือกรูปภาพ...'}
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleGuideImageUpload} 
+                            className="hidden" 
+                            disabled={uploadingGuideImage} 
+                          />
+                        </label>
+                        <p className="text-[8px] text-slate-400 mt-1">รูปจะแสดงคู่กับสต๊อกนี้เมื่อลูกค้าสั่งซื้อสำเร็จ</p>
+                      </div>
+                    </div>
                   </div>
 
                   <button 
@@ -2463,7 +2607,18 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         {stockItems.map((item) => (
                           <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                             <td className="py-2 font-mono text-[11px] text-slate-700 break-all select-all pr-4">
-                              {item.content}
+                              <div className="flex flex-col gap-1">
+                                <span>{item.content}</span>
+                                {item.guideImage && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => setLightboxImageUrl(item.guideImage)}
+                                    className="text-[9px] text-indigo-500 font-bold hover:text-indigo-700 hover:underline w-fit flex items-center gap-0.5 cursor-pointer bg-transparent border-0 p-0"
+                                  >
+                                    🖼️ ดูรูปวิธีการเข้า
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="py-2 text-[10px] text-slate-400">
                               {new Date(item.createdAt).toLocaleString('th-TH')}
@@ -3181,6 +3336,35 @@ export default function AdminDashboard({ categories, subcategories = [], product
         )}
 
       </div>
+
+      {/* Lightbox Modal */}
+      {lightboxImageUrl && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-fadeIn"
+          onClick={() => setLightboxImageUrl(null)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl p-2 border border-slate-700/10 overflow-hidden shadow-2xl flex flex-col animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setLightboxImageUrl(null)}
+              className="absolute top-3 right-3 z-50 w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900/80 text-white flex items-center justify-center cursor-pointer transition-colors shadow-sm font-bold border-none"
+              title="ปิด"
+            >
+              ✕
+            </button>
+            <div className="overflow-y-auto max-h-[85vh] p-1 flex justify-center items-center">
+              <img 
+                src={lightboxImageUrl} 
+                alt="วิธีการเข้าใช้งาน" 
+                className="max-w-full max-h-[80vh] object-contain rounded-lg" 
+              />
+            </div>
+          </div>
+        </div>
+      )}
       
     </div>
   );

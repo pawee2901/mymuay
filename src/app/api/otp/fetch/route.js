@@ -17,6 +17,11 @@ function matchesApp(from, subject, appId, senderList = []) {
   const ls = (subject || '').toLowerCase();
   const la = (appId || '').toLowerCase();
 
+  // If "other" is selected, match all emails
+  if (la === 'other') {
+    return true;
+  }
+
   // If we have custom sender emails configured in DB, prioritize matching them
   if (senderList && senderList.length > 0) {
     const matched = senderList.some(email => lf.includes(email) || ls.includes(email));
@@ -185,22 +190,7 @@ export async function POST(request) {
         }
       }
 
-      // If still no match (app filter too strict), return latest mail OTP
-      if (matchingMails.length === 0 && mails.length > 0) {
-        const latest = mails[0];
-        const otpCode = extractOtpCode(latest.html, latest.text);
-        if (otpCode) {
-          matchingMails.push({
-            id: latest.id || latest._id,
-            subject: latest.subject || 'ไม่มีหัวข้อ',
-            from: latest.from || '',
-            otp: otpCode,
-            html_body: latest.html || '',
-            text: latest.text || '',
-            date: latest.date || latest.createdAt || null,
-          });
-        }
-      }
+
 
     } else {
       // -------------------------------------------------------
