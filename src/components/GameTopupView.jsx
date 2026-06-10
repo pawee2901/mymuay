@@ -8,6 +8,9 @@ import Swal from 'sweetalert2';
 export default function GameTopupView({ game, product }) {
   const router = useRouter();
   const [openId, setOpenId] = useState('');
+  const [uid, setUid] = useState('');
+  const [aid, setAid] = useState('');
+  const [server, setServer] = useState('');
   const [selectedOptionId, setSelectedOptionId] = useState(product.options[0]?.id || '');
   const [isLoading, setIsLoading] = useState(false);
   const selectedOption = product.options.find((option) => option.id === selectedOptionId);
@@ -15,9 +18,32 @@ export default function GameTopupView({ game, product }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!openId.trim()) {
-      Swal.fire({ icon: 'warning', title: 'กรุณาระบุ OPEN ID' });
-      return;
+    let finalTargetId = '';
+
+    if (game.slug === 'heartopia') {
+      if (!uid.trim()) {
+        Swal.fire({ icon: 'warning', title: 'กรุณาระบุ UID' });
+        return;
+      }
+      if (!aid.trim()) {
+        Swal.fire({ icon: 'warning', title: 'กรุณาระบุ AID' });
+        return;
+      }
+      if (!/^\d{18}$/.test(aid.trim())) {
+        Swal.fire({ icon: 'warning', title: 'กรุณากรอก AID เป็นตัวเลข 18 หลักเท่านั้น' });
+        return;
+      }
+      if (!server) {
+        Swal.fire({ icon: 'warning', title: 'กรุณาเลือก Server' });
+        return;
+      }
+      finalTargetId = `${uid.trim()} | AID: ${aid.trim()} | Server: ${server}`;
+    } else {
+      if (!openId.trim()) {
+        Swal.fire({ icon: 'warning', title: 'กรุณาระบุ OPEN ID' });
+        return;
+      }
+      finalTargetId = openId.trim();
     }
 
     if (!selectedOption) {
@@ -33,7 +59,7 @@ export default function GameTopupView({ game, product }) {
         body: JSON.stringify({
           productId: product.id,
           productOptionId: selectedOption.id,
-          targetId: openId.trim(),
+          targetId: finalTargetId,
           quantity: 1,
         }),
       });
@@ -47,7 +73,10 @@ export default function GameTopupView({ game, product }) {
       Swal.fire({
         icon: 'success',
         title: 'เติมเกมสำเร็จ',
-        text: data.order?.externalOrderId ? `WonDD Order: ${data.order.externalOrderId}` : undefined,
+        confirmButtonColor: '#0ea5e9',
+        confirmButtonText: 'ตกลง'
+      }).then(() => {
+        router.push('/profile?tab=games');
       });
     } catch (error) {
       Swal.fire({ icon: 'error', title: 'เติมเกมไม่สำเร็จ', text: error.message });
@@ -72,27 +101,82 @@ export default function GameTopupView({ game, product }) {
           <img src={game.image} alt={game.name} className="w-20 h-20 rounded-2xl object-cover border border-slate-200 shadow-sm" />
           <div>
             <h1 className="text-2xl font-black text-slate-900">{game.name}</h1>
-            <p className="text-xs text-slate-500">ระบบเติมเกมอัตโนมัติ เลือกราคาแล้วกรอก OPEN ID</p>
+            <p className="text-xs text-slate-500">
+              {game.slug === 'heartopia' 
+                ? 'ระบบเติมเกมอัตโนมัติ เลือกราคาแล้วกรอกข้อมูลด้านล่าง' 
+                : 'ระบบเติมเกมอัตโนมัติ เลือกราคาแล้วกรอก OPEN ID'}
+            </p>
           </div>
         </div>
 
-        <section>
-          <h2 className="flex items-center gap-2 text-sky-500 font-black text-base">
-            <span className="inline-flex w-6 h-6 items-center justify-center rounded-md bg-sky-400 text-white text-sm">2</span>
-            ระบุ OPEN ID (ภูมิภาคไทย และ ตัวเลขแบบสั้นเท่านั้น)
-          </h2>
-          <input
-            value={openId}
-            onChange={(event) => setOpenId(event.target.value)}
-            placeholder="ระบุ OPEN ID"
-            className="mt-2 w-full max-w-[375px] px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-sky-400"
-          />
-        </section>
+        {game.slug === 'heartopia' ? (
+          <>
+            <section>
+              <h2 className="flex items-center gap-2 text-sky-500 font-black text-base">
+                <span className="inline-flex w-6 h-6 items-center justify-center rounded-md bg-sky-400 text-white text-sm">3</span>
+                ระบุ UID ( ระบุ ID )
+              </h2>
+              <input
+                value={uid}
+                onChange={(event) => setUid(event.target.value)}
+                placeholder="ระบุ UID"
+                className="mt-2 w-full max-w-[375px] px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-sky-400 font-medium"
+              />
+            </section>
+
+            <section>
+              <h2 className="flex items-center gap-2 text-sky-500 font-black text-base">
+                <span className="inline-flex w-6 h-6 items-center justify-center rounded-md bg-sky-400 text-white text-sm">4</span>
+                ( ระบุ AID ตัวเลข 18 หลัก เท่านั้น )
+              </h2>
+              <input
+                value={aid}
+                onChange={(event) => setAid(event.target.value)}
+                placeholder="ระบุ AID"
+                className="mt-2 w-full max-w-[375px] px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-sky-400 font-medium"
+              />
+            </section>
+
+            <section>
+              <h2 className="flex items-center gap-2 text-sky-500 font-black text-base">
+                <span className="inline-flex w-6 h-6 items-center justify-center rounded-md bg-sky-400 text-white text-sm">5</span>
+                Server
+              </h2>
+              <select
+                value={server}
+                onChange={(event) => setServer(event.target.value)}
+                className="mt-2 w-full max-w-[375px] px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-sky-400 bg-white font-medium cursor-pointer"
+              >
+                <option value="">เลือก Server</option>
+                <option value="SEA">SEA</option>
+                <option value="TW/HK/MO">TW/HK/MO</option>
+                <option value="Asia">Asia</option>
+                <option value="Global">Global</option>
+                <option value="America">America</option>
+              </select>
+            </section>
+          </>
+        ) : (
+          <section>
+            <h2 className="flex items-center gap-2 text-sky-500 font-black text-base">
+              <span className="inline-flex w-6 h-6 items-center justify-center rounded-md bg-sky-400 text-white text-sm">2</span>
+              ระบุ OPEN ID (ภูมิภาคไทย และ ตัวเลขแบบสั้นเท่านั้น)
+            </h2>
+            <input
+              value={openId}
+              onChange={(event) => setOpenId(event.target.value)}
+              placeholder="ระบุ OPEN ID"
+              className="mt-2 w-full max-w-[375px] px-3 py-2 border border-slate-300 rounded-sm text-sm focus:outline-none focus:ring-1 focus:ring-sky-400 font-medium"
+            />
+          </section>
+        )}
 
         <section>
           <h2 className="flex items-center gap-2 text-sky-500 font-black text-base">
-            <span className="inline-flex w-6 h-6 items-center justify-center rounded-md bg-sky-400 text-white text-sm">3</span>
-            เลือกราคา (สามารถเลือกได้หลายราคา)
+            <span className="inline-flex w-6 h-6 items-center justify-center rounded-md bg-sky-400 text-white text-sm">
+              {game.slug === 'heartopia' ? '6' : '3'}
+            </span>
+            กรุณาเลือกราคา (สามารถเลือกได้หลายราคา)
           </h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-4 mt-4">

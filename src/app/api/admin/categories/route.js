@@ -24,7 +24,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { name, image } = body;
+    const { id, name, image } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'กรุณากรอกชื่อหมวดหมู่' }, { status: 400 });
@@ -38,6 +38,7 @@ export async function POST(request) {
 
     const newCategory = await prisma.category.create({
       data: {
+        id: id || undefined,
         name,
         image: image || 'https://img.rdcw.co.th/images/be45613bbc4077dcc0cabe4080138e8be1a039648f2fba705b61fbb9848b8259.png',
       }

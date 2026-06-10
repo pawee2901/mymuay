@@ -11,14 +11,15 @@ export default async function CategoriesPage({ searchParams }) {
   const activeSubcategoryId = resolvedSearchParams.subid || null;
   const search = resolvedSearchParams.search || '';
 
-  const gameCategoryIds = [
-    'rov_cat', 'freefire_cat', 'undawn_cat', 'codm_cat', 'deltaforce_cat',
-    'haikyu_cat', 'pubg_cat', 'mlbb_cat', 'valorant_cat', 'heartopia_cat'
-  ];
-
-  // 1. Fetch Categories for list view
+  // 1. Fetch Categories for list view (exclude categories with ID ending in '_cat')
   const categories = await prisma.category.findMany({
-    where: { NOT: { id: { in: gameCategoryIds } } },
+    where: {
+      NOT: {
+        id: {
+          endsWith: '_cat'
+        }
+      }
+    },
     include: {
       subcategories: {
         include: {
@@ -69,7 +70,11 @@ export default async function CategoriesPage({ searchParams }) {
       whereCondition.subCategoryId = null; 
     }
   } else {
-    whereCondition.categoryId = { notIn: gameCategoryIds };
+    whereCondition.categoryId = {
+      not: {
+        endsWith: '_cat'
+      }
+    };
   }
 
   if (search) {

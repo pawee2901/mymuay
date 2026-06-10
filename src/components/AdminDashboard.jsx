@@ -448,14 +448,11 @@ export default function AdminDashboard({ categories, subcategories = [], product
     acc[prod.categoryId].add(prod.type);
     return acc;
   }, {});
-  const managedCategories = categories.filter((cat) =>
-    managedProducts.some((prod) => prod.categoryId === cat.id)
-  );
-  const visibleCategoryFilters = managedCategories.length > 0 ? managedCategories : categories;
-  const visibleProductCategories = categories.filter((cat) => {
-    const productTypes = productTypesByCategoryId[cat.id];
-    return !productTypes || productTypes.has(managedProductType);
+  const visibleCategoryFilters = categories.filter((cat) => {
+    const isGame = cat.id.endsWith('_cat');
+    return isGameManager ? isGame : !isGame;
   });
+  const visibleProductCategories = visibleCategoryFilters;
 
   useEffect(() => {
     if (activeTab !== 'products' && activeTab !== 'games') return;
@@ -816,9 +813,15 @@ export default function AdminDashboard({ categories, subcategories = [], product
     try {
       const url = '/api/admin/categories';
       const method = editingCatId ? 'PUT' : 'POST';
+      let customId = undefined;
+      if (!editingCatId && isGameManager) {
+        const rand = Math.random().toString(36).substring(2, 10);
+        customId = `game_${rand}_cat`;
+      }
+
       const bodyData = editingCatId 
         ? { id: editingCatId, name: newCatName, image: newCatImage } 
-        : { name: newCatName, image: newCatImage };
+        : { id: customId, name: newCatName, image: newCatImage };
 
       const res = await fetch(url, {
         method,
@@ -1657,9 +1660,11 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
         {/* 2. PRODUCTS / GAMES TAB (CRUD Forms) */}
         {(activeTab === 'products' || activeTab === 'games') && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
-            {/* Left Forms column (Add Product & Category) */}
-            <div className="lg:col-span-1 space-y-6">
+          <div className="flex flex-col gap-6 animate-fadeIn">
+            {/* Top Section Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Forms column (Add Category & Subcategory) */}
+              <div className="lg:col-span-1 space-y-6">
               
               {/* Category creation/edit form */}
               <div className="bg-white border border-slate-200/50 rounded-2xl p-5">
@@ -1743,37 +1748,49 @@ export default function AdminDashboard({ categories, subcategories = [], product
                 {/* Categories list */}
                 {categories.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-slate-100 max-h-48 overflow-y-auto space-y-2">
-                    <span className="text-[10px] font-bold text-slate-400 block mb-1">หมวดหมู่หลักทั้งหมด ({categories.length})</span>
-                    {categories.map(c => (
-                      <div key={c.id} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {c.image ? (
-                            <img src={c.image} alt={c.name} className="w-6 h-6 rounded-md object-cover border border-slate-200 shrink-0" />
-                          ) : (
-                            <div className="w-6 h-6 rounded-md bg-slate-200 shrink-0" />
-                          )}
-                          <span className="text-[10px] font-bold text-slate-700 truncate">{c.name}</span>
-                        </div>
-                        <div className="flex gap-1 shrink-0">
-                          <button 
-                            type="button"
-                            onClick={() => handleStartEditCategory(c)}
-                            className="p-1 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded transition-all cursor-pointer"
-                            title="แก้ไขหมวดหมู่"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => handleDeleteCategory(c.id)}
-                            className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer"
-                            title="ลบหมวดหมู่"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                    {(() => {
+                      const listCats = categories.filter(c => {
+                        const isGame = c.id.endsWith('_cat');
+                        return isGameManager ? isGame : !isGame;
+                      });
+                      return (
+                        <>
+                          <span className="text-[10px] font-bold text-slate-400 block mb-1">
+                            {isGameManager ? 'หมวดหมู่เกมทั้งหมด' : 'หมวดหมู่แอปทั้งหมด'} ({listCats.length})
+                          </span>
+                          {listCats.map(c => (
+                            <div key={c.id} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {c.image ? (
+                                  <img src={c.image} alt={c.name} className="w-6 h-6 rounded-md object-cover border border-slate-200 shrink-0" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-md bg-slate-200 shrink-0" />
+                                )}
+                                <span className="text-[10px] font-bold text-slate-700 truncate">{c.name}</span>
+                              </div>
+                              <div className="flex gap-1 shrink-0">
+                                <button 
+                                  type="button"
+                                  onClick={() => handleStartEditCategory(c)}
+                                  className="p-1 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded transition-all cursor-pointer"
+                                  title="แก้ไขหมวดหมู่"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  type="button"
+                                  onClick={() => handleDeleteCategory(c.id)}
+                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer"
+                                  title="ลบหมวดหมู่"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -1866,6 +1883,10 @@ export default function AdminDashboard({ categories, subcategories = [], product
                   </div>
                 )}
               </div>
+            </div>
+            
+            {/* Right Forms column (Add Product & Options) */}
+            <div className="lg:col-span-2 space-y-6">
 
               {/* Product creation form */}
               <div className="bg-white border border-slate-200/50 rounded-2xl p-5">
@@ -2246,9 +2267,10 @@ export default function AdminDashboard({ categories, subcategories = [], product
               )}
 
             </div>
+          </div>
 
-            {/* Right List column (Show existing products) */}
-            <div className="lg:col-span-2 bg-white border border-slate-200/50 rounded-2xl p-5 overflow-hidden flex flex-col">
+          {/* Bottom Section: Existing Products List (Show existing products in full width) */}
+          <div className="w-full bg-white border border-slate-200/50 rounded-2xl p-5 overflow-hidden flex flex-col">
               <div className="flex flex-col gap-3 mb-4">
                 <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   {isGameManager ? (

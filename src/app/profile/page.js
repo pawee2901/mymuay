@@ -27,11 +27,35 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchProfile();
+    
+    // Read tab from query parameters
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && ['orders', 'games', 'mobile', 'deposits', 'password'].includes(tab)) {
+      setActiveTab(tab);
+    }
+
+    // Polling every 20 seconds
+    const interval = setInterval(() => {
+      fetchProfile(true);
+    }, 20000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchProfile = async () => {
+  // Update selectedOrder details in real-time when polling updates orders
+  useEffect(() => {
+    if (isModalOpen && selectedOrder && user?.orders) {
+      const updatedOrder = user.orders.find(o => o.id === selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  }, [user?.orders, isModalOpen, selectedOrder?.id]);
+
+  const fetchProfile = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await fetch('/api/users/profile');
       if (!res.ok) {
         if (res.status === 401 || res.status === 404) {
@@ -44,14 +68,16 @@ export default function ProfilePage() {
       setUser(data.user);
     } catch (err) {
       console.error(err);
-      Swal.fire({
-        title: 'เกิดข้อผิดพลาด',
-        text: 'เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์',
-        icon: 'error',
-        confirmButtonColor: '#4f46e5'
-      });
+      if (!silent) {
+        Swal.fire({
+          title: 'เกิดข้อผิดพลาด',
+          text: 'เกิดข้อผิดพลาดในการดึงข้อมูลโปรไฟล์',
+          icon: 'error',
+          confirmButtonColor: '#4f46e5'
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -390,7 +416,7 @@ export default function ProfilePage() {
               <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden divide-y divide-slate-100">
                 {currentFilteredOrders.map((order) => (
                   <div key={order.id} className="p-4 relative">
-                    {/* Top Row: User Badge & Order ID */}
+                    {/* Top Row: User Badge & Order ID & Status */}
                     <div className="flex items-center justify-between mb-3 border-b border-slate-50 pb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
@@ -398,9 +424,29 @@ export default function ProfilePage() {
                         </div>
                         <span className="text-sm font-semibold text-slate-700">{user.username}</span>
                       </div>
-                      <span className="text-[10px] md:text-xs font-mono text-slate-400 truncate max-w-[150px]">
-                        {order.id}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* Status Badge */}
+                        {(() => {
+                          const status = order.status?.toUpperCase() || 'PENDING';
+                          let bg = 'bg-yellow-50 text-yellow-700 border border-yellow-100';
+                          let text = 'กำลังดำเนินการ';
+                          if (status === 'COMPLETED') {
+                            bg = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+                            text = 'สำเร็จ';
+                          } else if (status === 'FAILED') {
+                            bg = 'bg-rose-50 text-rose-700 border border-rose-100';
+                            text = 'ล้มเหลว';
+                          }
+                          return (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${bg}`}>
+                              {text}
+                            </span>
+                          );
+                        })()}
+                        <span className="text-[10px] md:text-xs font-mono text-slate-400 truncate max-w-[100px] md:max-w-[150px]">
+                          {order.id}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Middle Row: Product Image & Details */}
@@ -485,6 +531,28 @@ export default function ProfilePage() {
                   <h4 className="font-bold text-slate-800 text-sm">{selectedOrder.product?.name}</h4>
                   <p className="text-xs text-slate-500 mt-0.5">ซื้อเมื่อ {formatDate(selectedOrder.createdAt)}</p>
                 </div>
+              </div>
+
+              {/* Status Row inside Modal */}
+              <div className="mb-4 flex items-center justify-between text-xs border-b border-slate-100 pb-3">
+                <span className="text-slate-500 font-medium">สถานะรายการ:</span>
+                {(() => {
+                  const status = selectedOrder.status?.toUpperCase() || 'PENDING';
+                  let bg = 'bg-yellow-50 text-yellow-700 border border-yellow-100';
+                  let text = 'กำลังดำเนินการ (Pending)';
+                  if (status === 'COMPLETED') {
+                    bg = 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+                    text = 'สำเร็จ (Completed)';
+                  } else if (status === 'FAILED') {
+                    bg = 'bg-rose-50 text-rose-700 border border-rose-100';
+                    text = 'ล้มเหลว (Failed)';
+                  }
+                  return (
+                    <span className={`font-bold px-2.5 py-1 rounded-full ${bg}`}>
+                      {text}
+                    </span>
+                  );
+                })()}
               </div>
 
               {/* Content Box */}

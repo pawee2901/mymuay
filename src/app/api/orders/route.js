@@ -106,6 +106,12 @@ export async function POST(request) {
       if (!targetId) {
         return NextResponse.json({ error: 'กรุณากรอกข้อมูล UID / OpenID ของผู้เล่น' }, { status: 400 });
       }
+      if (product.gameServiceCode === 'htp') {
+        const match = targetId.match(/(.+)\s*\|\s*AID:\s*(\d{18})\s*\|\s*Server:\s*(.+)/i);
+        if (!match) {
+          return NextResponse.json({ error: 'รูปแบบข้อมูลผู้เล่นสำหรับ Heartopia ไม่ถูกต้อง (AID ต้องเป็นตัวเลข 18 หลักเท่านั้น)' }, { status: 400 });
+        }
+      }
       orderContent = `เติมเงิน ${product.name} สำเร็จไปยัง ID/UID: ${targetId} เรียบร้อยแล้ว (ออโต้)`;
     }
 
