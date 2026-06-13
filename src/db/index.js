@@ -1,14 +1,40 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 
 const getDatabaseUrl = () => {
   if (process.env.DATABASE_URL) {
     return process.env.DATABASE_URL;
   }
-  // Resolve absolute path in both dev and production to avoid relative path issues when CWD changes
-  const dbPath = path.resolve(process.cwd(), 'prisma', 'dev.db').replace(/\\/g, '/');
-  return `file:${dbPath}`;
+
+  const searchStarts = [
+    process.cwd(),
+    typeof __dirname !== 'undefined' ? __dirname : null,
+    process.argv[1] ? path.dirname(process.argv[1]) : null
+  ].filter(Boolean);
+
+  for (const start of searchStarts) {
+    let current = path.resolve(start);
+    // Go up to 5 levels to find the directory containing the 'prisma' folder
+    for (let i = 0; i < 5; i++) {
+      const dbDir = path.join(current, 'prisma');
+      const dbPath = path.join(dbDir, 'dev.db');
+      if (fs.existsSync(dbDir)) {
+        const resolvedPath = dbPath.replace(/\\/g, '/');
+        console.log(`[DB AUTO-DISCOVER]: Found database directory at: ${resolvedPath}`);
+        return `file:${resolvedPath}`;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  }
+
+  // Fallback to absolute path from current process working directory
+  const fallbackPath = path.resolve(process.cwd(), 'prisma', 'dev.db').replace(/\\/g, '/');
+  console.log(`[DB FALLBACK]: Falling back to: ${fallbackPath}`);
+  return `file:${fallbackPath}`;
 };
 
 let prisma;

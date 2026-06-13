@@ -1,0 +1,368 @@
+diff --git a/src/components/AdminDashboard.jsx b/src/components/AdminDashboard.jsx
+index 4ca4ba0..06ccd9e 100644
+--- a/src/components/AdminDashboard.jsx
++++ b/src/components/AdminDashboard.jsx
+@@ -26,7 +26,9 @@ import {
+   Settings,
+   KeyRound,
+   List,
+-  Gamepad2
++  Gamepad2,
++  GripVertical,
++  Check
+ } from 'lucide-react';
+ import EmailSettingsPanel from '@/components/EmailSettingsPanel';
+ import Swal from 'sweetalert2';
+@@ -439,6 +441,8 @@ export default function AdminDashboard({ categories, subcategories = [], product
+ 
+   // Edit Product Form state
+   const [editingProdId, setEditingProdId] = useState(null);
++  const [inlineOptionsData, setInlineOptionsData] = useState({});
++  const [draggedIdx, setDraggedIdx] = useState(null);
+ 
+   const isGameManager = activeTab === 'games';
+   const managedProductType = isGameManager ? 'TOPUP' : 'ACCOUNT';
+@@ -1037,6 +1041,130 @@ export default function AdminDashboard({ categories, subcategories = [], product
+     setNewOptionPosition(0);
+   };
+ 
++  const handleInlineChange = (optId, field, value) => {
++    setInlineOptionsData(prev => {
++      const currentProd = products.find(p => p.id === editingProdId);
++      const opt = currentProd?.options?.find(o => o.id === optId) || {};
++      const current = prev[optId] || {
++        name: opt.name,
++        price: opt.price,
++        agentPrice: opt.agentPrice || 0,
++        externalPackCode: opt.externalPackCode || '',
++        position: opt.position || 0
++      };
++      return {
++        ...prev,
++        [optId]: {
++          ...current,
++          [field]: value
++        }
++      };
++    });
++  };
++
++  const isOptionChanged = (opt) => {
++    const edited = inlineOptionsData[opt.id];
++    if (!edited) return false;
++    return (
++      edited.name !== opt.name ||
++      Number(edited.price) !== Number(opt.price) ||
++      Number(edited.agentPrice) !== Number(opt.agentPrice || 0) ||
++      edited.externalPackCode !== (opt.externalPackCode || '') ||
++      Number(edited.position) !== Number(opt.position || 0)
++    );
++  };
++
++  const handleSaveInlineOption = async (optId) => {
++    const edited = inlineOptionsData[optId];
++    if (!edited) return;
++
++    setErrorMsg('');
++    setSuccessMsg('');
++    setIsLoading(true);
++
++    try {
++      const res = await fetch('/api/admin/options', {
++        method: 'PUT',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          id: optId,
++          name: edited.name,
++          price: parseFloat(edited.price),
++          agentPrice: parseFloat(edited.agentPrice) || 0,
++          externalPackCode: edited.externalPackCode,
++          position: parseInt(edited.position) || 0
++        }),
++      });
++
++      const data = await res.json();
++      setIsLoading(false);
++
++      if (res.ok) {
++        setSuccessMsg(`บันทึกตัวเลือกสินค้า "${edited.name}" สำเร็จ!`);
++        setInlineOptionsData(prev => {
++          const next = { ...prev };
++          delete next[optId];
++          return next;
++        });
++        router.refresh();
++      } else {
++        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการบันทึกตัวเลือกสินค้า');
++      }
++    } catch (err) {
++      console.error(err);
++      setIsLoading(false);
++      setErrorMsg('เครือข่ายขัดข้อง');
++    }
++  };
++
++  const handleDragStart = (e, index) => {
++    e.dataTransfer.effectAllowed = 'move';
++    setDraggedIdx(index);
++  };
++
++  const handleDragOver = (e, index) => {
++    e.preventDefault();
++  };
++
++  const handleDrop = async (e, targetIdx, sortedOptions) => {
++    e.preventDefault();
++    if (draggedIdx === null || draggedIdx === targetIdx) {
++      setDraggedIdx(null);
++      return;
++    }
++
++    const newOptions = [...sortedOptions];
++    const [draggedItem] = newOptions.splice(draggedIdx, 1);
++    newOptions.splice(targetIdx, 0, draggedItem);
++
++    setDraggedIdx(null);
++    setIsLoading(true);
++
++    try {
++      for (let i = 0; i < newOptions.length; i++) {
++        const opt = newOptions[i];
++        const newPos = i;
++        if (opt.position !== newPos) {
++          await fetch('/api/admin/options', {
++            method: 'PUT',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({
++              id: opt.id,
++              position: newPos
++            })
++          });
++        }
++      }
++      setSuccessMsg('สลับลำดับตัวเลือกสินค้าสำเร็จ!');
++      router.refresh();
++    } catch (error) {
++      console.error('Failed to reorder options:', error);
++      setErrorMsg('เกิดข้อผิดพลาดในการสลับลำดับตัวเลือกสินค้า');
++    } finally {
++      setIsLoading(false);
++    }
++  };
++
+   const handleUpdateOptionPosition = async (optionId, newPosition) => {
+     setErrorMsg('');
+     setSuccessMsg('');
+@@ -2190,72 +2318,132 @@ export default function AdminDashboard({ categories, subcategories = [], product
+                     });
+                     if (optionsList.length > 0) {
+                       return (
+-                        <div className="mt-4 pt-4 border-t border-slate-100 space-y-2 max-h-48 overflow-y-auto">
+-                          <span className="text-[10px] font-bold text-slate-400 block mb-1">ตัวเลือกที่มีอยู่ ({optionsList.length})</span>
+-                          {optionsList.map(opt => (
+-                            <div key={opt.id} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+-                              <div className="min-w-0 flex-1">
+-                                <span className="text-[10px] font-bold text-slate-700 block truncate">{opt.name}</span>
+-                                <span className="text-[9px] text-[#2563eb] block font-black">
+-                                  ทั่วไป: {opt.price.toLocaleString()} ฿ / ส่ง: {(opt.agentPrice || 0).toLocaleString()} ฿
+-                                </span>
+-                                {opt.externalPackCode && (
+-                                  <span className="text-[9px] text-emerald-600 block font-bold font-mono">packcode: {opt.externalPackCode}</span>
+-                                )}
+-                              </div>
+-                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+-                                <div className="flex flex-col gap-0.5">
+-                                  <button
+-                                    type="button"
+-                                    onClick={() => handleUpdateOptionPosition(opt.id, (opt.position || 0) - 1)}
+-                                    className="p-0.5 hover:bg-slate-200 text-slate-500 rounded text-[7px] leading-none transition-all cursor-pointer font-bold"
+-                                    title="ย้ายขึ้น"
+-                                  >
+-                                    ▲
+-                                  </button>
+-                                  <button
+-                                    type="button"
+-                                    onClick={() => handleUpdateOptionPosition(opt.id, (opt.position || 0) + 1)}
+-                                    className="p-0.5 hover:bg-slate-200 text-slate-500 rounded text-[7px] leading-none transition-all cursor-pointer font-bold"
+-                                    title="ย้ายลง"
+-                                  >
+-                                    ▼
+-                                  </button>
+-                                </div>
+-                                <input
+-                                  type="number"
+-                                  value={opt.position || 0}
+-                                  onChange={async (e) => {
+-                                    const val = parseInt(e.target.value);
+-                                    if (!isNaN(val)) {
+-                                      await handleUpdateOptionPosition(opt.id, val);
+-                                    }
+-                                  }}
+-                                  className="w-10 px-1 py-0.5 border border-slate-200 rounded text-[9px] text-center bg-white font-bold"
+-                                  title="ลำดับแสดงผล"
+-                                />
+-                                <button 
+-                                  type="button"
+-                                  onClick={() => handleStartEditOption(opt)}
+-                                  className={`p-1 rounded transition-all cursor-pointer ${
+-                                    editingOptionId === opt.id 
+-                                      ? 'bg-blue-50 text-blue-600' 
+-                                      : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'
+-                                  }`}
+-                                  title="แก้ไขตัวเลือก"
+-                                >
+-                                  <Edit2 className="w-3.5 h-3.5" />
+-                                </button>
+-                                <button 
+-                                  type="button"
+-                                  onClick={() => handleDeleteOption(opt.id)}
+-                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer"
+-                                >
+-                                  <Trash2 className="w-3.5 h-3.5" />
+-                                </button>
+-                              </div>
+-                            </div>
+-                          ))}
++                        <div className="mt-4 pt-4 border-t border-slate-100">
++                          <span className="text-[10px] font-bold text-slate-400 block mb-2">ตัวเลือกที่มีอยู่ ({optionsList.length})</span>
++                          <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-64 overflow-y-auto">
++                            <table className="w-full text-xs text-left border-collapse bg-white">
++                              <thead>
++                                <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase text-[9px] sticky top-0 z-10">
++                                  <th className="py-2 px-1 text-center w-8">ย้าย</th>
++                                  <th className="py-2 px-2 min-w-[120px]">ชื่อตัวเลือก</th>
++                                  <th className="py-2 px-2 w-20">ราคาทั่วไป (฿)</th>
++                                  <th className="py-2 px-2 w-20">ราคาส่ง (฿)</th>
++                                  <th className="py-2 px-2 w-28">Packcode (WonDD)</th>
++                                  <th className="py-2 px-2 w-14 text-center">ลำดับ</th>
++                                  <th className="py-2 px-2 w-16 text-center">จัดการ</th>
++                                </tr>
++                              </thead>
++                              <tbody>
++                                {optionsList.map((opt, idx) => {
++                                  const edited = inlineOptionsData[opt.id] || {
++                                    name: opt.name,
++                                    price: opt.price,
++                                    agentPrice: opt.agentPrice || 0,
++                                    externalPackCode: opt.externalPackCode || '',
++                                    position: opt.position || 0
++                                  };
++                                  const hasChanged = isOptionChanged(opt);
++                                  
++                                  return (
++                                    <tr 
++                                      key={opt.id} 
++                                      className={`border-b border-slate-100 hover:bg-slate-50/50 transition ${
++                                        draggedIdx === idx ? 'opacity-40 bg-slate-100' : ''
++                                      }`}
++                                      onDragOver={(e) => handleDragOver(e, idx)}
++                                      onDrop={(e) => handleDrop(e, idx, optionsList)}
++                                    >
++                                      {/* Drag Handle */}
++                                      <td 
++                                        className="py-1 px-1 text-center cursor-grab active:cursor-grabbing select-none"
++                                        draggable
++                                        onDragStart={(e) => handleDragStart(e, idx)}
++                                      >
++                                        <GripVertical className="w-4 h-4 text-slate-400 mx-auto" />
++                                      </td>
++
++                                      {/* Option Name Input */}
++                                      <td className="py-1 px-2">
++                                        <input
++                                          type="text"
++                                          value={edited.name}
++                                          onChange={(e) => handleInlineChange(opt.id, 'name', e.target.value)}
++                                          className="w-full px-2 py-0.5 border border-slate-200 rounded text-slate-700 focus:outline-none focus:border-blue-500 font-medium text-xs"
++                                        />
++                                      </td>
++
++                                      {/* Price Input */}
++                                      <td className="py-1 px-2">
++                                        <input
++                                          type="number"
++                                          value={edited.price}
++                                          onChange={(e) => handleInlineChange(opt.id, 'price', e.target.value)}
++                                          className="w-full px-1.5 py-0.5 border border-slate-200 rounded text-slate-700 text-right focus:outline-none focus:border-blue-500 font-medium text-xs"
++                                        />
++                                      </td>
++
++                                      {/* Agent Price Input */}
++                                      <td className="py-1 px-2">
++                                        <input
++                                          type="number"
++                                          value={edited.agentPrice}
++                                          onChange={(e) => handleInlineChange(opt.id, 'agentPrice', e.target.value)}
++                                          className="w-full px-1.5 py-0.5 border border-slate-200 rounded text-slate-700 text-right focus:outline-none focus:border-blue-500 font-medium text-xs"
++                                        />
++                                      </td>
++
++                                      {/* Packcode Input */}
++                                      <td className="py-1 px-2">
++                                        <input
++                                          type="text"
++                                          value={edited.externalPackCode}
++                                          onChange={(e) => handleInlineChange(opt.id, 'externalPackCode', e.target.value)}
++                                          className="w-full px-2 py-0.5 border border-slate-200 rounded text-slate-700 font-mono focus:outline-none focus:border-blue-500 text-xs"
++                                          placeholder="ไม่มี"
++                                        />
++                                      </td>
++
++                                      {/* Position Input */}
++                                      <td className="py-1 px-2">
++                                        <input
++                                          type="number"
++                                          value={edited.position}
++                                          onChange={(e) => handleInlineChange(opt.id, 'position', parseInt(e.target.value) || 0)}
++                                          className="w-10 px-1 py-0.5 border border-slate-200 rounded text-center focus:outline-none focus:border-blue-500 mx-auto block font-semibold text-xs"
++                                        />
++                                      </td>
++
++                                      {/* Action Buttons */}
++                                      <td className="py-1 px-2 text-center">
++                                        <div className="flex items-center justify-center gap-1.5">
++                                          {hasChanged ? (
++                                            <button
++                                              type="button"
++                                              onClick={() => handleSaveInlineOption(opt.id)}
++                                              className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-all cursor-pointer"
++                                              title="บันทึกการแก้ไขตัวเลือกนี้"
++                                            >
++                                              <Check className="w-3.5 h-3.5" />
++                                            </button>
++                                          ) : (
++                                            <div className="w-5.5 h-5.5" />
++                                          )}
++                                          <button
++                                            type="button"
++                                            onClick={() => handleDeleteOption(opt.id)}
++                                            className="p-1 text-rose-500 hover:bg-rose-50 rounded transition-all cursor-pointer"
++                                            title="ลบตัวเลือก"
++                                          >
++                                            <Trash2 className="w-3.5 h-3.5" />
++                                          </button>
++                                        </div>
++                                      </td>
++                                    </tr>
++                                  );
++                                })}
++                              </tbody>
++                            </table>
++                          </div>
+                         </div>
+                       );
+                     }
+diff --git a/src/components/GameTopupView.jsx b/src/components/GameTopupView.jsx
+index ce62493..a5a4a4d 100644
+--- a/src/components/GameTopupView.jsx
++++ b/src/components/GameTopupView.jsx
+@@ -199,9 +199,6 @@ export default function GameTopupView({ game, product }) {
+                     <span>{pointLabel}</span>
+                   </div>
+                   <div className="mt-0.5 text-xs">
+-                    {originalPrice > option.price && (
+-                      <span className="text-slate-400 line-through mr-1.5">{originalPrice.toLocaleString()} บาท</span>
+-                    )}
+                     <span className="text-red-500 font-bold">{option.price.toLocaleString()} บาท</span>
+                   </div>
+                 </button>
