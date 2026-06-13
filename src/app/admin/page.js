@@ -63,6 +63,8 @@ export default async function AdminPage() {
       id: true,
       username: true,
       role: true,
+      balance: true,
+      plainPassword: true,
       createdAt: true
     },
     orderBy: { createdAt: 'desc' }
@@ -182,6 +184,8 @@ export default async function AdminPage() {
     id: u.id,
     username: u.username,
     role: u.role,
+    balance: u.balance,
+    plainPassword: u.plainPassword || '',
     createdAt: u.createdAt.toISOString()
   }));
 

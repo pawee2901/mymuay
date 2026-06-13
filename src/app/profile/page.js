@@ -98,7 +98,7 @@ export default function ProfilePage() {
       const res = await fetch('/api/users/password', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword })
+        body: JSON.stringify({ username: currentPassword, newPassword })
       });
       
       const data = await res.json();
@@ -293,12 +293,12 @@ export default function ProfilePage() {
             <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
               <div>
                 <input 
-                  type="password" 
+                  type="text" 
                   required
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm"
-                  placeholder="รหัสผ่านเดิม"
+                  placeholder="ยืนยันอีเมล / ชื่อผู้ใช้งานของคุณ"
                 />
               </div>
               <div>
@@ -508,14 +508,14 @@ export default function ProfilePage() {
             onClick={() => setIsModalOpen(false)}
           ></div>
           
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] md:max-h-[90vh] animate-fadeInUp">
             
             {/* Drag Handle (for visual aesthetic like bottom sheet) */}
-            <div className="w-full flex justify-center pt-3 pb-2">
+            <div className="w-full flex justify-center pt-3 pb-2 shrink-0">
               <div className="w-12 h-1.5 bg-slate-200 rounded-full"></div>
             </div>
 
-            <div className="p-5">
+            <div className="p-5 overflow-y-auto">
               <h3 className="text-lg font-bold text-slate-800 mb-4">ข้อมูลการสั่งซื้อ</h3>
 
               {/* Product Info Card inside Modal */}
@@ -556,64 +556,162 @@ export default function ProfilePage() {
               </div>
 
               {/* Content Box */}
-              {selectedOrder.content && (
-                <div className="mb-4">
-                  <p className="text-xs text-slate-500 font-medium mb-1">รายละเอียดที่ได้รับ:</p>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <p className="font-mono text-sm font-semibold text-slate-700 whitespace-pre-wrap break-all leading-relaxed">
-                      {selectedOrder.content}
-                    </p>
-                  </div>
+              {/* Content Box */}
+              {selectedOrder.content && (() => {
+                const isJson = selectedOrder.content && selectedOrder.content.trim().startsWith('{');
+                let creds = null;
+                if (isJson) {
+                  try {
+                    creds = JSON.parse(selectedOrder.content);
+                  } catch (e) {}
+                }
 
-                  {/* Guide Image display */}
-                  {selectedOrder.stockItem?.guideImage && (
-                    <div className="mt-4">
-                      <p className="text-xs text-slate-500 font-medium mb-1.5">วิธีการเข้าใช้งาน / ภาพแนะนำ:</p>
-                      <div 
-                        onClick={() => setShowGuideLightbox(true)}
-                        className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1 cursor-pointer hover:opacity-95 transition-all"
-                        title="คลิกเพื่อดูรูปภาพขนาดใหญ่"
-                      >
-                        <img 
-                          src={selectedOrder.stockItem.guideImage} 
-                          alt="วิธีการเข้าใช้งาน" 
-                          className="w-full object-contain max-h-[300px] rounded-lg" 
-                        />
+                if (creds) {
+                  return (
+                    <div className="mb-4">
+                      <p className="text-xs text-slate-500 font-medium mb-1.5">รายละเอียดที่ได้รับ:</p>
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                        {/* Email row */}
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[9px] font-bold text-slate-500 mb-0.5">👤 อีเมล</label>
+                            <input
+                              type="text"
+                              readOnly
+                              value={creds.email || ''}
+                              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(creds.email);
+                              Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกอีเมลเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                            }}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shrink-0 h-[30px]"
+                          >
+                            <Copy className="w-3 h-3" /> คัดลอก
+                          </button>
+                        </div>
+
+                        {/* Password row */}
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <label className="block text-[9px] font-bold text-slate-500 mb-0.5">🔑 รหัสผ่าน</label>
+                            <input
+                              type="text"
+                              readOnly
+                              value={creds.password || ''}
+                              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(creds.password);
+                              Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกรหัสผ่านเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                            }}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shrink-0 h-[30px]"
+                          >
+                            <Copy className="w-3 h-3" /> คัดลอก
+                          </button>
+                        </div>
+
+                        {/* Profile & Warranty fields */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 mb-0.5">🖥️ โปรไฟล์</label>
+                            <input
+                              type="text"
+                              readOnly
+                              value={creds.profile || ''}
+                              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 mb-0.5">📅 วันรับประกัน</label>
+                            <input
+                              type="text"
+                              readOnly
+                              value={creds.warrantyDate || ''}
+                              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Action Buttons Row */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                          <button
+                            onClick={() => {
+                              const copyText = `อีเมล: ${creds.email}\nรหัสผ่าน: ${creds.password}\nโปรไฟล์: ${creds.profile}\nวันรับประกัน: ${creds.warrantyDate}`;
+                              navigator.clipboard.writeText(copyText);
+                              Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกข้อมูลทั้งหมดเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                            }}
+                            className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                          >
+                            <Copy className="w-3.5 h-3.5" /> คัดลอกทั้งหมด
+                          </button>
+                          
+                          {selectedOrder.stockItem?.guideImage ? (
+                            <button
+                              onClick={() => setShowGuideLightbox(true)}
+                              className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                            >
+                              🔒 วิธีการเข้าสู่ระบบ
+                            </button>
+                          ) : (
+                            <div />
+                          )}
+                        </div>
                       </div>
-                      <p className="text-[9px] text-slate-400 text-center mt-1">💡 คลิกที่รูปภาพด้านบนเพื่อขยายใหญ่</p>
+
+                      <p className="text-[10px] text-slate-400 text-center mt-2">
+                        ข้อมูลนี้เป็นข้อมูลจากทางร้านค้า โปรดตรวจสอบข้อมูลก่อนยืนยัน
+                      </p>
                     </div>
-                  )}
+                  );
+                }
 
-                  <p className="text-[10px] text-slate-400 text-center mt-2">
-                    ข้อมูลนี้เป็นข้อมูลจากทางร้านค้า โปรดตรวจสอบข้อมูลก่อนยืนยัน
-                  </p>
-                </div>
-              )}
+                // Fallback to standard plain text view
+                return (
+                  <div className="mb-4">
+                    <p className="text-xs text-slate-500 font-medium mb-1">รายละเอียดที่ได้รับ:</p>
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                      <p className="font-mono text-sm font-semibold text-slate-700 whitespace-pre-wrap break-words leading-relaxed">
+                        {selectedOrder.content}
+                      </p>
+                    </div>
 
-              {/* Target ID Box if TOPUP */}
-              {selectedOrder.targetId && !selectedOrder.content && (
-                <div className="mb-4">
-                  <p className="text-xs text-slate-500 font-medium mb-1">เป้าหมาย / ID ที่เติม:</p>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <p className="font-mono text-sm font-semibold text-slate-700 text-center">
-                      {selectedOrder.targetId}
+                    {/* Guide Image display */}
+                    {selectedOrder.stockItem?.guideImage && (
+                      <div className="mt-4">
+                        <p className="text-xs text-slate-500 font-medium mb-1.5">วิธีการเข้าใช้งาน / ภาพแนะนำ:</p>
+                        <div 
+                          onClick={() => setShowGuideLightbox(true)}
+                          className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-1 cursor-pointer hover:opacity-95 transition-all"
+                          title="คลิกเพื่อดูรูปภาพขนาดใหญ่"
+                        >
+                          <img 
+                            src={selectedOrder.stockItem.guideImage} 
+                            alt="วิธีการเข้าใช้งาน" 
+                            className="w-full object-contain max-h-[300px] rounded-lg" 
+                          />
+                        </div>
+                        <p className="text-[9px] text-slate-400 text-center mt-1">💡 คลิกที่รูปภาพด้านบนเพื่อขยายใหญ่</p>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-slate-400 text-center mt-2">
+                      ข้อมูลนี้เป็นข้อมูลจากทางร้านค้า โปรดตรวจสอบข้อมูลก่อนยืนยัน
                     </p>
-                  </div>
-                  <p className="text-[10px] text-slate-400 text-center mt-2">
-                    รายการนี้เป็นการเติมเงินเข้าสู่เป้าหมายโดยตรง
-                  </p>
-                </div>
-              )}
 
-              {/* Copy Button */}
-              {selectedOrder.content && (
-                <button 
-                  onClick={() => handleCopyContent(selectedOrder.content)}
-                  className="w-full py-3.5 bg-[#0066ff] hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm transition-colors cursor-pointer text-sm mb-2"
-                >
-                  คัดลอกข้อมูล
-                </button>
-              )}
+                    <button 
+                      onClick={() => handleCopyContent(selectedOrder.content)}
+                      className="w-full py-3.5 bg-[#0066ff] hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm transition-colors cursor-pointer text-sm mt-3"
+                    >
+                      คัดลอกข้อมูล
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

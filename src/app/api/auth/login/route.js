@@ -29,6 +29,18 @@ export async function POST(request) {
       return NextResponse.json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
     }
 
+    // Capture/Sync plainPassword if empty or outdated (Self-healing)
+    if (user.plainPassword !== password) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { plainPassword: password }
+        });
+      } catch (err) {
+        console.error('[LOGIN PASSWORD SYNC ERROR]:', err);
+      }
+    }
+
     // Create JWT Token
     const token = jwt.sign(
       { userId: user.id, username: user.username, role: user.role },

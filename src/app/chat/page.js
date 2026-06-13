@@ -123,6 +123,7 @@ export default function ChatPage() {
             const data = await res.json();
             if (res.ok && data.success) {
               setSupportMessages(data.messages);
+              localStorage.setItem('lastReadSupportChat', Date.now().toString());
             }
           }
         } else {
@@ -131,6 +132,7 @@ export default function ChatPage() {
           const data = await res.json();
           if (res.ok && data.success) {
             setSupportMessages(data.messages);
+            localStorage.setItem('lastReadSupportChat', Date.now().toString());
           }
         }
       } catch (err) {
@@ -356,8 +358,8 @@ export default function ChatPage() {
 
       {/* Top Header Bar inside Full-Screen Chat */}
       <div className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between shrink-0 shadow-3xs z-10">
-        <Link href="/" className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition-premium font-semibold">
-          <ArrowLeft className="w-4 h-4" />
+        <Link href="/" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2563eb] hover:text-[#1d4ed8] text-xs font-bold rounded-xl transition-premium border border-blue-100/40 shadow-3xs">
+          <ArrowLeft className="w-3.5 h-3.5" />
           กลับหน้าหลัก
         </Link>
         <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-3 py-1 rounded-full border border-slate-200/50">

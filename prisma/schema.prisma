@@ -13,12 +13,23 @@ model User {
   id        String               @id @default(cuid())
   username  String               @unique
   password  String
+  plainPassword String           @default("")
   role      String               @default("USER") // "USER" or "ADMIN"
   balance   Float                @default(0.0)
   createdAt DateTime             @default(now())
   orders    Order[]
   deposits  DepositTransaction[]
   slipVerifications SlipVerification[]
+  pushSubscriptions PushSubscription[]
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  keys      String   // Stringified JSON containing p256dh and auth keys
+  createdAt DateTime @default(now())
 }
 
 model Category {

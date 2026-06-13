@@ -178,8 +178,8 @@ export default function DepositPage() {
       
       {/* Header Back Button & Balance */}
       <div className="mb-6 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-800 transition-premium font-semibold">
-          <ArrowLeft className="w-4 h-4" />
+        <Link href="/" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2563eb] hover:text-[#1d4ed8] text-xs font-bold rounded-xl transition-premium border border-blue-100/40 shadow-3xs">
+          <ArrowLeft className="w-3.5 h-3.5" />
           กลับหน้าหลัก
         </Link>
         <div className="bg-white border border-slate-200/50 rounded-xl px-4 py-1.5 flex items-center gap-2 text-xs font-bold text-slate-700 shadow-3xs">

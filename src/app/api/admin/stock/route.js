@@ -206,3 +206,37 @@ export async function DELETE(request) {
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลบรายการสต๊อก' }, { status: 500 });
   }
 }
+
+export async function PUT(request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'ไม่ได้รับอนุญาตให้เข้าถึง' }, { status: 403 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id, content, guideImage } = body;
+
+    if (!id || !content) {
+      return NextResponse.json({ error: 'กรุณาระบุรหัสสต๊อกและข้อมูลเนื้อหา' }, { status: 400 });
+    }
+
+    const updated = await prisma.stockItem.update({
+      where: { id },
+      data: {
+        content,
+        guideImage: guideImage || null
+      }
+    });
+
+    console.log(`[STOCK UPDATED SUCCESS] แอดมินแก้ไขสต๊อกสินค้า ID "${id}" สำเร็จ`);
+
+    return NextResponse.json({
+      success: true,
+      stockItem: updated
+    });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการแก้ไขสต๊อกสินค้า' }, { status: 500 });
+  }
+}

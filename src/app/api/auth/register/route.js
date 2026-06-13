@@ -36,6 +36,7 @@ export async function POST(request) {
       data: {
         username,
         password: hashedPassword,
+        plainPassword: password,
         role: 'USER', // Default role
       }
     });

@@ -32,6 +32,7 @@ async function main() {
     data: {
       username: 'admin',
       password: adminPassword,
+      plainPassword: 'admin1234',
       role: 'ADMIN',
       balance: 0.0
     },
@@ -41,6 +42,7 @@ async function main() {
     data: {
       username: 'user',
       password: userPassword,
+      plainPassword: 'user1234',
       role: 'USER',
       balance: 500.0
     },

@@ -28,7 +28,11 @@ import {
   List,
   Gamepad2,
   GripVertical,
-  Check
+  Check,
+  Eye,
+  EyeOff,
+  UserPlus,
+  UserCheck
 } from 'lucide-react';
 import EmailSettingsPanel from '@/components/EmailSettingsPanel';
 import Swal from 'sweetalert2';
@@ -40,7 +44,23 @@ export default function AdminDashboard({ categories, subcategories = [], product
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  
+  // User Management State
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState('USER');
+  const [newUserBalance, setNewUserBalance] = useState(0);
+
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [editUserRole, setEditUserRole] = useState('USER');
+  const [editUserBalance, setEditUserBalance] = useState(0);
   const [uploadingField, setUploadingField] = useState(null); // 'cat' | 'prod' | 'subcat' | 'depositQr' | 'card1' | 'card2' | 'card3' | 'card4'
+  const [selectedAdminOrder, setSelectedAdminOrder] = useState(null);
 
   // PIN Verification State
   const [isPinVerified, setIsPinVerified] = useState(false);
@@ -519,12 +539,14 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
   // Add Stock Form
   const [selectedProdId, setSelectedProdId] = useState(products[0]?.id || '');
-  const [stockLines, setStockLines] = useState('');
-  const [isMultiLineStock, setIsMultiLineStock] = useState(false);
-  const [splitMode, setSplitMode] = useState('line'); // 'line', 'blank', 'delimiter', 'none'
   const [guideImageUrl, setGuideImageUrl] = useState('');
   const [uploadingGuideImage, setUploadingGuideImage] = useState(false);
   const [lightboxImageUrl, setLightboxImageUrl] = useState(null);
+  const [stockEmail, setStockEmail] = useState('');
+  const [stockPassword, setStockPassword] = useState('');
+  const [stockProfile, setStockProfile] = useState('');
+  const [stockWarrantyDate, setStockWarrantyDate] = useState('');
+  const [editingStockId, setEditingStockId] = useState(null);
 
   const handleGuideImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -621,6 +643,53 @@ export default function AdminDashboard({ categories, subcategories = [], product
       setStockItems([]);
     }
   }, [selectedProdId, selectedOptionIdForStock, activeTab]);
+
+  const handleViewStockContent = (item) => {
+    const isJson = item.content && item.content.trim().startsWith('{');
+    if (isJson) {
+      try {
+        const parsed = JSON.parse(item.content);
+        Swal.fire({
+          title: 'ข้อมูลสินค้าในสต๊อก',
+          html: `
+            <div class="text-left text-xs space-y-3 font-sans p-2 bg-slate-50 border border-slate-200/60 rounded-xl">
+              <div class="flex flex-col">
+                <span class="text-[9px] font-bold text-slate-400 uppercase">👤 อีเมล / ข้อมูลระบุตัวตน</span>
+                <span class="text-slate-800 font-mono text-xs font-semibold select-all mt-0.5">${parsed.email || '-'}</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[9px] font-bold text-slate-400 uppercase">🔑 รหัสผ่าน (Password)</span>
+                <span class="text-slate-800 font-mono text-xs font-semibold select-all mt-0.5">${parsed.password || '-'}</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[9px] font-bold text-slate-400 uppercase">🖥️ โปรไฟล์ (Profile)</span>
+                <span class="text-slate-800 font-semibold mt-0.5 text-xs">${parsed.profile || '-'}</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[9px] font-bold text-slate-400 uppercase">📅 วันรับประกัน (Warranty Date)</span>
+                <span class="text-slate-800 font-semibold mt-0.5 text-xs">${parsed.warrantyDate || '-'}</span>
+              </div>
+            </div>
+          `,
+          icon: 'info',
+          confirmButtonColor: '#4f46e5',
+          confirmButtonText: 'ปิดหน้าต่าง'
+        });
+        return;
+      } catch (e) {}
+    }
+    Swal.fire({
+      title: 'ข้อมูลสินค้าในสต๊อก',
+      html: `
+        <div class="text-left text-xs p-3 bg-slate-50 border border-slate-200/60 rounded-xl font-mono select-all break-all leading-relaxed whitespace-pre-wrap">
+          ${item.content || 'ไม่มีข้อมูล'}
+        </div>
+      `,
+      icon: 'info',
+      confirmButtonColor: '#4f46e5',
+      confirmButtonText: 'ปิดหน้าต่าง'
+    });
+  };
 
   const handleDeleteStockItem = async (itemId) => {
     const result = await Swal.fire({
@@ -1321,7 +1390,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
     }
   };
 
-  // 3. Add Stock Action
+  // 3. Add & Edit Stock Action
   const handleAddStock = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -1329,35 +1398,107 @@ export default function AdminDashboard({ categories, subcategories = [], product
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/admin/stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: selectedProdId,
-          productOptionId: selectedOptionIdForStock || null,
-          stockLines,
-          isMultiLine: splitMode !== 'line',
-          splitMode,
-          guideImage: guideImageUrl || null
-        }),
+      const contentVal = JSON.stringify({
+        email: stockEmail,
+        password: stockPassword,
+        profile: stockProfile,
+        warrantyDate: stockWarrantyDate
       });
-      const data = await res.json();
-      setIsLoading(false);
 
-      if (res.ok) {
-        setSuccessMsg(`เติมคีย์สต๊อกสำเร็จ! เพิ่มเข้าระบบจำนวน ${data.addedCount} ชิ้น`);
-        setStockLines('');
-        setGuideImageUrl('');
-        fetchStockItems(selectedProdId, selectedOptionIdForStock);
-        router.refresh();
+      if (editingStockId) {
+        // EDIT MODE
+        const res = await fetch('/api/admin/stock', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingStockId,
+            content: contentVal,
+            guideImage: guideImageUrl || null
+          })
+        });
+        const data = await res.json();
+        setIsLoading(false);
+
+        if (res.ok) {
+          setSuccessMsg('แก้ไขข้อมูลสต๊อกสำเร็จ!');
+          setEditingStockId(null);
+          setStockEmail('');
+          setStockPassword('');
+          setStockProfile('');
+          setStockWarrantyDate('');
+          setGuideImageUrl('');
+          fetchStockItems(selectedProdId, selectedOptionIdForStock);
+          router.refresh();
+        } else {
+          setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลสต๊อก');
+        }
       } else {
-        setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการเติมคีย์สต๊อก');
+        // ADD MODE
+        const res = await fetch('/api/admin/stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: selectedProdId,
+            productOptionId: selectedOptionIdForStock || null,
+            stockLines: contentVal,
+            isMultiLine: false,
+            splitMode: 'none',
+            guideImage: guideImageUrl || null
+          }),
+        });
+        const data = await res.json();
+        setIsLoading(false);
+
+        if (res.ok) {
+          setSuccessMsg(`เติมคีย์สต๊อกสำเร็จ! เพิ่มเข้าระบบเรียบร้อย`);
+          setStockEmail('');
+          setStockPassword('');
+          setStockProfile('');
+          setStockWarrantyDate('');
+          setGuideImageUrl('');
+          fetchStockItems(selectedProdId, selectedOptionIdForStock);
+          router.refresh();
+        } else {
+          setErrorMsg(data.error || 'เกิดข้อผิดพลาดในการเติมคีย์สต๊อก');
+        }
       }
     } catch (err) {
       console.error(err);
       setIsLoading(false);
       setErrorMsg('เครือข่ายขัดข้อง');
     }
+  };
+
+  const handleStartEditStock = (item) => {
+    setEditingStockId(item.id);
+    let parsed = null;
+    if (item.content && item.content.trim().startsWith('{')) {
+      try {
+        parsed = JSON.parse(item.content);
+      } catch (e) {}
+    }
+
+    if (parsed) {
+      setStockEmail(parsed.email || '');
+      setStockPassword(parsed.password || '');
+      setStockProfile(parsed.profile || '');
+      setStockWarrantyDate(parsed.warrantyDate || '');
+    } else {
+      setStockEmail(item.content || '');
+      setStockPassword('');
+      setStockProfile('');
+      setStockWarrantyDate('');
+    }
+    setGuideImageUrl(item.guideImage || '');
+  };
+
+  const handleCancelEditStock = () => {
+    setEditingStockId(null);
+    setStockEmail('');
+    setStockPassword('');
+    setStockProfile('');
+    setStockWarrantyDate('');
+    setGuideImageUrl('');
   };
 
   const handleToggleUserRole = async (userId, newRole) => {
@@ -1403,6 +1544,107 @@ export default function AdminDashboard({ categories, subcategories = [], product
     } catch (err) {
       console.error(err);
       setErrorMsg('เครือข่ายขัดข้อง');
+    }
+  };
+
+  const togglePasswordVisibility = (userId) => {
+    setVisiblePasswords(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
+  };
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    if (!newUsername.trim() || !newUserPassword.trim() || !newUserRole) {
+      Swal.fire({ title: 'ข้อผิดพลาด', text: 'กรุณากรอกข้อมูลให้ครบถ้วน', icon: 'error', confirmButtonColor: '#4f46e5' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newUsername,
+          password: newUserPassword,
+          role: newUserRole,
+          balance: newUserBalance
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Swal.fire({ title: 'สำเร็จ', text: 'เพิ่มผู้ใช้งานสำเร็จแล้ว', icon: 'success', confirmButtonColor: '#4f46e5' });
+        setIsAddUserModalOpen(false);
+        setNewUsername('');
+        setNewUserPassword('');
+        setNewUserRole('USER');
+        setNewUserBalance(0);
+        router.refresh();
+      } else {
+        Swal.fire({ title: 'ข้อผิดพลาด', text: data.error || 'เกิดข้อผิดพลาดในการเพิ่มผู้ใช้งาน', icon: 'error', confirmButtonColor: '#4f46e5' });
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ title: 'ข้อผิดพลาด', text: 'เครือข่ายขัดข้อง', icon: 'error', confirmButtonColor: '#4f46e5' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenEditUser = (user) => {
+    setEditingUser(user);
+    setEditUsername(user.username);
+    setEditUserRole(user.role);
+    setEditUserBalance(user.balance || 0);
+    setEditUserPassword('');
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleEditUser = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    if (!editUsername.trim() || !editUserRole) {
+      Swal.fire({ title: 'ข้อผิดพลาด', text: 'กรุณากรอกชื่อผู้ใช้งานและบทบาท', icon: 'error', confirmButtonColor: '#4f46e5' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const payload = {
+        userId: editingUser.id,
+        username: editUsername,
+        role: editUserRole,
+        balance: editUserBalance
+      };
+
+      if (editUserPassword.trim()) {
+        payload.password = editUserPassword;
+      }
+
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Swal.fire({ title: 'สำเร็จ', text: 'แก้ไขข้อมูลผู้ใช้งานสำเร็จแล้ว', icon: 'success', confirmButtonColor: '#4f46e5' });
+        setIsEditUserModalOpen(false);
+        setEditingUser(null);
+        setEditUsername('');
+        setEditUserPassword('');
+        router.refresh();
+      } else {
+        Swal.fire({ title: 'ข้อผิดพลาด', text: data.error || 'เกิดข้อผิดพลาดในการแก้ไขข้อมูลผู้ใช้งาน', icon: 'error', confirmButtonColor: '#4f46e5' });
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ title: 'ข้อผิดพลาด', text: 'เครือข่ายขัดข้อง', icon: 'error', confirmButtonColor: '#4f46e5' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -2321,7 +2563,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         <div className="mt-4 pt-4 border-t border-slate-100">
                           <span className="text-[10px] font-bold text-slate-400 block mb-2">ตัวเลือกที่มีอยู่ ({optionsList.length})</span>
                           <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-64 overflow-y-auto">
-                            <table className="w-full text-xs text-left border-collapse bg-white">
+                            <table className="w-full min-w-[650px] text-xs text-left border-collapse bg-white">
                               <thead>
                                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase text-[9px] sticky top-0 z-10">
                                   <th className="py-2 px-1 text-center w-8">ย้าย</th>
@@ -2640,91 +2882,54 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     );
                   })()}
 
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">รูปแบบการแบ่งรายการสต๊อก</label>
-                    <div className="grid grid-cols-2 gap-2 mb-3 select-none">
-                      <button
-                        type="button"
-                        onClick={() => setSplitMode('line')}
-                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
-                          splitMode === 'line' 
-                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                        }`}
-                      >
-                        <div className="text-[10px]">1 บรรทัด = 1 สต๊อก</div>
-                        <div className="text-[8px] opacity-80 font-normal mt-0.5">แบ่งรายการทุกๆ ขึ้นบรรทัดใหม่</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSplitMode('blank')}
-                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
-                          splitMode === 'blank' 
-                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                        }`}
-                      >
-                        <div className="text-[10px]">เว้นบรรทัดว่าง = แยกสต๊อก</div>
-                        <div className="text-[8px] opacity-80 font-normal mt-0.5">1 รายการมีได้หลายบรรทัด</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSplitMode('delimiter')}
-                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
-                          splitMode === 'delimiter' 
-                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                        }`}
-                      >
-                        <div className="text-[10px]">แยกด้วยเครื่องหมาย ---</div>
-                        <div className="text-[8px] opacity-80 font-normal mt-0.5">ใช้บรรทัด --- เพื่อแยกคีย์</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSplitMode('none')}
-                        className={`px-3 py-2 text-left rounded-xl border transition-all cursor-pointer ${
-                          splitMode === 'none' 
-                            ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 font-bold' 
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                        }`}
-                      >
-                        <div className="text-[10px]">ทั้งหมด = 1 สต๊อก</div>
-                        <div className="text-[8px] opacity-80 font-normal mt-0.5">ไม่แยก ทุกบรรทัดคือคีย์เดียวกัน</div>
-                      </button>
+                  <div className="space-y-3 p-3 bg-slate-50/50 border border-slate-200/80 rounded-xl">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">👤 อีเมล (Email)</label>
+                      <input
+                        type="text"
+                        required
+                        value={stockEmail}
+                        onChange={(e) => setStockEmail(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                        placeholder="เช่น user@gmail.com"
+                      />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                      {splitMode === 'line' && 'ป้อนรหัสคีย์สินค้า (วางทีละบรรทัด)'}
-                      {splitMode === 'blank' && 'ป้อนคีย์สต๊อกแบบหลายบรรทัด (เว้นบรรทัดว่างเพื่อแยกแต่ละชิ้น)'}
-                      {splitMode === 'delimiter' && 'ป้อนคีย์สต๊อกแบบหลายบรรทัด (ใช้ --- เพื่อแยกแต่ละชิ้น)'}
-                      {splitMode === 'none' && 'ป้อนรายละเอียดคีย์สต๊อกแบบหลายบรรทัด (ทั้งหมดนี้จะนับเป็น 1 สต๊อก)'}
-                    </label>
-                    <p className="text-[9px] text-slate-400 mb-1 font-light">
-                      {splitMode === 'line' && '1 บรรทัดจะเท่ากับสต๊อกสินค้า 1 ชิ้น เช่น: email:password หรือ รหัสคีย์'}
-                      {splitMode === 'blank' && 'แต่ละสต๊อกมีหลายบรรทัดได้ โดยเว้น 1 บรรทัดว่างเพื่อเริ่มสต๊อกถัดไป'}
-                      {splitMode === 'delimiter' && 'แต่ละสต๊อกมีหลายบรรทัดได้ โดยใส่ --- คั่นกลางระหว่างสต๊อก'}
-                      {splitMode === 'none' && 'ข้อความทั้งหมดในกล่องจะถูกส่งให้ลูกค้าเป็น 1 รายการสั่งซื้อ'}
-                    </p>
-                    <textarea 
-                      required
-                      rows="8"
-                      placeholder={
-                        splitMode === 'line' ? "เช่น\nuser1@netflix.com:pass123\nuser2@netflix.com:pass456" :
-                        splitMode === 'blank' ? "ตัวอย่างการพิมพ์:\nอีเมล: client1@test.com\nรหัสผ่าน: pass123\n\nอีเมล: client2@test.com\nรหัสผ่าน: pass456" :
-                        splitMode === 'delimiter' ? "ตัวอย่างการพิมพ์:\nอีเมล: client1@test.com\nรหัสผ่าน: pass123\n---\nอีเมล: client2@test.com\nรหัสผ่าน: pass456" :
-                        "ตัวอย่างการพิมพ์:\nอีเมล: client@test.com\nรหัสผ่าน: pass1234\nหมายเหตุ: ห้ามเปลี่ยนแปลงข้อมูลบัญชีเด็ดขาด"
-                      }
-                      value={stockLines}
-                      onChange={(e) => setStockLines(e.target.value)}
-                      className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
-                    />
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">🔑 รหัสผ่าน (Password)</label>
+                      <input
+                        type="text"
+                        required
+                        value={stockPassword}
+                        onChange={(e) => setStockPassword(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                        placeholder="เช่น pass1234"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">🖥️ โปรไฟล์ (Profile)</label>
+                      <input
+                        type="text"
+                        value={stockProfile}
+                        onChange={(e) => setStockProfile(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                        placeholder="เช่น จอที่ 1 หรือ ชื่อโปรไฟล์"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">📅 วันรับประกัน (Warranty Date)</label>
+                      <input
+                        type="text"
+                        value={stockWarrantyDate}
+                        onChange={(e) => setStockWarrantyDate(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                        placeholder="เช่น 12 ก.ค. 2569"
+                      />
+                    </div>
                   </div>
 
                   {/* Guide Image Uploader */}
                   <div className="bg-slate-50 border border-slate-200/50 rounded-xl p-3 space-y-2">
-                    <label className="block text-[10px] font-bold text-slate-600">รูปภาพวิธีการเข้าใช้งาน / คำแนะนำเพิ่มเติม (ไม่บังคับ)</label>
+                    <label className="block text-[10px] font-bold text-slate-600">วิธีการเข้าสู่ระบบ / ภาพแนะนำ (รูปภาพ - ไม่บังคับ)</label>
                     <div className="flex items-center gap-3">
                       {guideImageUrl ? (
                         <div className="w-14 h-14 rounded-lg border border-slate-200 bg-white overflow-hidden shrink-0 relative group">
@@ -2758,13 +2963,24 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     </div>
                   </div>
 
-                  <button 
-                    type="submit" 
-                    disabled={isLoading || !selectedProdId}
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-premium shadow-xs cursor-pointer"
-                  >
-                    บันทึกการเติมสต๊อก
-                  </button>
+                  <div className="space-y-2">
+                    <button 
+                      type="submit" 
+                      disabled={isLoading || !selectedProdId}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-premium shadow-xs cursor-pointer"
+                    >
+                      {editingStockId ? 'บันทึกการแก้ไขสต๊อก' : 'บันทึกการเติมสต๊อก'}
+                    </button>
+                    {editingStockId && (
+                      <button 
+                        type="button" 
+                        onClick={handleCancelEditStock}
+                        className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-premium shadow-xs cursor-pointer"
+                      >
+                        ยกเลิกการแก้ไข
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
             </div>
@@ -2805,7 +3021,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                   </div>
                 ) : (
                   <div className="overflow-x-auto max-h-[450px] overflow-y-auto pr-1">
-                    <table className="w-full text-xs text-left border-collapse">
+                    <table className="w-full min-w-[550px] text-xs text-left border-collapse">
                       <thead>
                         <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px]">
                           <th className="py-2.5">คีย์ / ข้อมูลสินค้าในสต๊อก</th>
@@ -2814,37 +3030,68 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         </tr>
                       </thead>
                       <tbody>
-                        {stockItems.map((item) => (
-                          <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                            <td className="py-2 font-mono text-[11px] text-slate-700 break-all select-all pr-4">
-                              <div className="flex flex-col gap-1">
-                                <span>{item.content}</span>
-                                {item.guideImage && (
-                                  <button 
-                                    type="button"
-                                    onClick={() => setLightboxImageUrl(item.guideImage)}
-                                    className="text-[9px] text-indigo-500 font-bold hover:text-indigo-700 hover:underline w-fit flex items-center gap-0.5 cursor-pointer bg-transparent border-0 p-0"
-                                  >
-                                    🖼️ ดูรูปวิธีการเข้า
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-2 text-[10px] text-slate-400">
-                              {new Date(item.createdAt).toLocaleString('th-TH')}
-                            </td>
-                            <td className="py-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteStockItem(item.id)}
-                                className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer inline-flex items-center"
-                                title="ลบรายการนี้"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {stockItems.map((item) => {
+                          const isJson = item.content && item.content.trim().startsWith('{');
+                          let emailDisp = '-';
+                          if (isJson) {
+                            try {
+                              const parsed = JSON.parse(item.content);
+                              emailDisp = parsed.email || '-';
+                            } catch (e) {}
+                          } else {
+                            emailDisp = item.content;
+                          }
+
+                          return (
+                            <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                              <td className="py-2.5 pr-4">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-bold text-[9px] select-none">ID/EMAIL:</span>
+                                    <span className="font-mono text-[11px] text-slate-700 font-bold select-all truncate max-w-[120px] sm:max-w-[200px]">{emailDisp}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleViewStockContent(item)}
+                                      className="px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/30 text-[9px] font-bold cursor-pointer transition-colors"
+                                    >
+                                      ดูเต็ม
+                                    </button>
+                                  </div>
+                                  {item.guideImage && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => setLightboxImageUrl(item.guideImage)}
+                                      className="text-[9px] text-indigo-500 font-bold hover:text-indigo-700 hover:underline w-fit flex items-center gap-0.5 cursor-pointer bg-transparent border-0 p-0"
+                                    >
+                                      🖼️ ดูรูปวิธีการเข้า
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 text-[10px] text-slate-400">
+                                {new Date(item.createdAt).toLocaleString('th-TH')}
+                              </td>
+                              <td className="py-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditStock(item)}
+                                  className="p-1 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded transition-all cursor-pointer inline-flex items-center mr-1"
+                                  title="แก้ไขรายการนี้"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteStockItem(item.id)}
+                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-all cursor-pointer inline-flex items-center"
+                                  title="ลบรายการนี้"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -2857,15 +3104,26 @@ export default function AdminDashboard({ categories, subcategories = [], product
         {/* 4. USER ROLE MANAGEMENT TAB */}
         {activeTab === 'users' && (
           <div className="bg-white border border-slate-200/50 rounded-2xl p-5 overflow-hidden animate-fadeIn">
-            <h3 className="text-xs font-bold text-slate-800 mb-4 flex items-center gap-1.5">
-              <Users className="w-4.5 h-4.5 text-indigo-500" />
-              จัดการสิทธิ์การเข้าถึง / ปรับยศสมาชิก
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Users className="w-4.5 h-4.5 text-indigo-500" />
+                จัดการสิทธิ์การเข้าถึง / ปรับยศสมาชิก
+              </h3>
+              <button
+                onClick={() => setIsAddUserModalOpen(true)}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] rounded-lg transition-premium cursor-pointer flex items-center gap-1 shrink-0"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                เพิ่มผู้ใช้งาน
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px]">
                     <th className="py-2.5">ชื่อผู้ใช้งาน</th>
+                    <th className="py-2.5 text-right">ยอดเงิน</th>
+                    <th className="py-2.5 text-center">รหัสผ่าน</th>
                     <th className="py-2.5 text-center">ยศ/บทบาท</th>
                     <th className="py-2.5">วันที่สมัคร</th>
                     <th className="py-2.5 text-center">เครื่องมือจัดการ</th>
@@ -2875,6 +3133,25 @@ export default function AdminDashboard({ categories, subcategories = [], product
                   {users.map((u) => (
                     <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                       <td className="py-3 font-semibold text-slate-700">{u.username}</td>
+                      <td className="py-3 text-right font-bold text-indigo-600">{u.balance?.toLocaleString() || 0} ฿</td>
+                      <td className="py-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className={`font-mono text-slate-600 font-semibold ${visiblePasswords[u.id] && !u.plainPassword ? 'text-amber-500 text-[10px]' : ''}`}>
+                            {visiblePasswords[u.id] ? (u.plainPassword || 'ไม่ได้บันทึกรหัสผ่าน') : '••••••'}
+                          </span>
+                          <button
+                            onClick={() => togglePasswordVisibility(u.id)}
+                            className="text-slate-400 hover:text-slate-600 p-1 focus:outline-none transition-colors cursor-pointer"
+                            title={visiblePasswords[u.id] ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                          >
+                            {visiblePasswords[u.id] ? (
+                              <EyeOff className="w-3.5 h-3.5" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
                       <td className="py-3 text-center">
                         <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
                           u.role === 'ADMIN' 
@@ -2890,19 +3167,28 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         {new Date(u.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </td>
                       <td className="py-3 text-center">
-                        {u.id === adminUser.userId ? (
-                          <span className="text-[10px] text-slate-400 font-semibold italic">บัญชีปัจจุบัน</span>
-                        ) : (
-                          <select 
-                            value={u.role}
-                            onChange={(e) => handleToggleUserRole(u.id, e.target.value)}
-                            className="px-2 py-1 border border-slate-200 rounded-lg text-[10px] font-bold bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleOpenEditUser(u)}
+                            className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-premium cursor-pointer"
                           >
-                            <option value="USER">USER</option>
-                            <option value="AGENT">AGENT (ตัวแทน)</option>
-                            <option value="ADMIN">ADMIN</option>
-                          </select>
-                        )}
+                            <Edit2 className="w-3 h-3" />
+                            แก้ไข
+                          </button>
+                          {u.id === adminUser.userId ? (
+                            <span className="text-[10px] text-slate-400 font-semibold italic">บัญชีปัจจุบัน</span>
+                          ) : (
+                            <select 
+                              value={u.role}
+                              onChange={(e) => handleToggleUserRole(u.id, e.target.value)}
+                              className="px-2 py-1 border border-slate-200 rounded-lg text-[10px] font-bold bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                            >
+                              <option value="USER">USER</option>
+                              <option value="AGENT">AGENT (ตัวแทน)</option>
+                              <option value="ADMIN">ADMIN</option>
+                            </select>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2919,11 +3205,44 @@ export default function AdminDashboard({ categories, subcategories = [], product
               <History className="w-4.5 h-4.5 text-indigo-500" />
               บันทึกรายการคำสั่งซื้อและการจัดส่ง
             </h3>
-            <div className="overflow-x-auto">
+            {/* Mobile View: Card List (hidden on md and up) */}
+            <div className="md:hidden space-y-3">
+              {orders.map((o) => (
+                <div key={o.id} className="p-4 border border-slate-200/60 rounded-2xl bg-white flex flex-col space-y-3 shadow-xs">
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold border-b border-slate-50 pb-2">
+                    <span className="font-mono bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded text-slate-500">ออเดอร์ #{o.id.slice(-6)}</span>
+                    <span className="text-slate-500">{new Date(o.createdAt).toLocaleString('th-TH')}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-slate-800 text-xs leading-tight truncate">{o.productName}</h4>
+                      <p className="text-[10px] text-slate-500 mt-1 font-semibold">จำนวน: {o.quantity} ชิ้น | ยอดรวม: <span className="text-indigo-600 font-bold">{o.totalPrice} ฿</span></p>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
+                      ชำระเงินแล้ว
+                    </span>
+                  </div>
+                  
+                  <div className="pt-2 border-t border-slate-100 flex justify-end">
+                    <button
+                      onClick={() => setSelectedAdminOrder(o)}
+                      className="px-4 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/50 text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 w-full justify-center"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      ดูข้อมูล
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop View: Table (hidden on mobile) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px]">
-                    <th className="py-2.5">เลขออเดอร์</th>
+                    <th className="py-2.5">ออเดอร์</th>
                     <th className="py-2.5">สินค้า</th>
                     <th className="py-2.5 text-center">จำนวน</th>
                     <th className="py-2.5 text-right">ยอดรวม</th>
@@ -2935,7 +3254,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                 <tbody>
                   {orders.map((o) => (
                     <tr key={o.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="py-3 font-mono text-slate-500 font-bold">{o.id}</td>
+                      <td className="py-3 font-mono text-slate-500 font-bold">#{o.id.slice(-4)}</td>
                       <td className="py-3 font-bold text-slate-700">{o.productName}</td>
                       <td className="py-3 text-center text-slate-600">{o.quantity} ชิ้น</td>
                       <td className="py-3 text-right font-bold text-indigo-600">{o.totalPrice} ฿</td>
@@ -2945,13 +3264,13 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         </span>
                       </td>
                       <td className="py-3 text-slate-600">
-                        {o.targetId ? (
-                          <span className="text-[10px] text-indigo-600 font-medium">UID: {o.targetId}</span>
-                        ) : (
-                          <code className="text-[10px] font-mono bg-slate-50 border border-slate-100 px-1 py-0.5 rounded text-slate-600 break-all select-all">
-                            {o.content}
-                          </code>
-                        )}
+                        <button
+                          onClick={() => setSelectedAdminOrder(o)}
+                          className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/50 text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 w-fit"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          ดูข้อมูล
+                        </button>
                       </td>
                       <td className="py-3 text-slate-400">
                         {new Date(o.createdAt).toLocaleString('th-TH')}
@@ -3547,6 +3866,186 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
       </div>
 
+      {/* 1. Add User Modal */}
+      {isAddUserModalOpen && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden max-w-md w-full animate-scaleUp">
+            <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-5 text-white flex justify-between items-center">
+              <h3 className="text-sm font-bold flex items-center gap-1.5">
+                <UserPlus className="w-4.5 h-4.5" />
+                เพิ่มผู้ใช้งานใหม่
+              </h3>
+              <button 
+                onClick={() => setIsAddUserModalOpen(false)}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">ชื่อผู้ใช้งาน (Username / Email)</label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="เช่น customer_muayy"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-slate-800 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">รหัสผ่าน (Password)</label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="อย่างน้อย 6 ตัวอักษร"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-slate-800 font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1">สิทธิ์/บทบาท (Role)</label>
+                  <select 
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white text-slate-800 font-bold cursor-pointer"
+                  >
+                    <option value="USER">USER</option>
+                    <option value="AGENT">AGENT (ตัวแทน)</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1">ยอดเงินเริ่มต้น (Balance)</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    required
+                    value={newUserBalance}
+                    onChange={(e) => setNewUserBalance(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-slate-800 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserModalOpen(false)}
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition cursor-pointer disabled:opacity-50"
+                >
+                  {isLoading ? 'กำลังบันทึก...' : 'เพิ่มสมาชิก'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Edit User Modal */}
+      {isEditUserModalOpen && editingUser && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden max-w-md w-full animate-scaleUp">
+            <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-5 text-white flex justify-between items-center">
+              <h3 className="text-sm font-bold flex items-center gap-1.5">
+                <UserCheck className="w-4.5 h-4.5" />
+                แก้ไขข้อมูลผู้ใช้งาน
+              </h3>
+              <button 
+                onClick={() => { setIsEditUserModalOpen(false); setEditingUser(null); }}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">ชื่อผู้ใช้งาน (Username / Email)</label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="เช่น customer_muayy"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-slate-800 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">รหัสผ่านใหม่ (ว่างไว้หากไม่ต้องการเปลี่ยน)</label>
+                <input 
+                  type="text"
+                  placeholder="กรอกรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)"
+                  value={editUserPassword}
+                  onChange={(e) => setEditUserPassword(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-slate-800 font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1">สิทธิ์/บทบาท (Role)</label>
+                  <select 
+                    value={editUserRole}
+                    onChange={(e) => setEditUserRole(e.target.value)}
+                    disabled={editingUser.id === adminUser.userId}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white text-slate-800 font-bold cursor-pointer disabled:bg-slate-100 disabled:opacity-80"
+                  >
+                    <option value="USER">USER</option>
+                    <option value="AGENT">AGENT (ตัวแทน)</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1">ยอดเงินคงเหลือ (Balance)</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editUserBalance}
+                    onChange={(e) => setEditUserBalance(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-slate-800 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsEditUserModalOpen(false); setEditingUser(null); }}
+                  className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition cursor-pointer disabled:opacity-50"
+                >
+                  {isLoading ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Lightbox Modal */}
       {lightboxImageUrl && (
         <div 
@@ -3571,6 +4070,205 @@ export default function AdminDashboard({ categories, subcategories = [], product
                 alt="วิธีการเข้าใช้งาน" 
                 className="max-w-full max-h-[80vh] object-contain rounded-lg" 
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. View Order Details Modal */}
+      {selectedAdminOrder && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden max-w-lg w-full flex flex-col max-h-[85vh] md:max-h-[90vh] animate-scaleUp">
+            <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-5 text-white flex justify-between items-center shrink-0">
+              <h3 className="text-sm font-bold flex items-center gap-1.5">
+                <Eye className="w-4.5 h-4.5 text-white" />
+                รายละเอียดข้อมูลคำสั่งซื้อ
+              </h3>
+              <button 
+                onClick={() => setSelectedAdminOrder(null)}
+                className="text-white/80 hover:text-white transition-colors cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-4">
+              {/* Order Info Summary */}
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs space-y-2 text-slate-600">
+                <div className="flex justify-between">
+                  <span className="font-semibold">เลขออเดอร์:</span>
+                  <span className="font-mono text-slate-800 font-bold">{selectedAdminOrder.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">สินค้า:</span>
+                  <span className="font-bold text-slate-800">{selectedAdminOrder.productName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">จำนวน:</span>
+                  <span className="font-bold text-slate-800">{selectedAdminOrder.quantity} ชิ้น</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">ยอดรวม:</span>
+                  <span className="font-bold text-indigo-600">{selectedAdminOrder.totalPrice} ฿</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">วันเวลาสั่งซื้อ:</span>
+                  <span className="font-semibold text-slate-500">
+                    {new Date(selectedAdminOrder.createdAt).toLocaleString('th-TH')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Delivered Content Box */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">ข้อมูลการจัดส่ง / คีย์สินค้า:</label>
+                {selectedAdminOrder.targetId && (
+                  <div className="mb-2">
+                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+                      UID / รหัสอ้างอิง: {selectedAdminOrder.targetId}
+                    </span>
+                  </div>
+                )}
+
+                {(() => {
+                  const content = selectedAdminOrder.content;
+                  const isJson = content && content.trim().startsWith('{');
+                  let creds = null;
+                  if (isJson) {
+                    try {
+                      creds = JSON.parse(content);
+                    } catch (e) {}
+                  }
+
+                  if (creds) {
+                    return (
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                        {/* Email row */}
+                        {creds.email && (
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">👤 อีเมล</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.email}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(creds.email);
+                                Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกอีเมลเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[9px] font-bold flex items-center gap-1 cursor-pointer transition shrink-0 h-[28px]"
+                            >
+                              คัดลอก
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Password row */}
+                        {creds.password && (
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">🔑 รหัสผ่าน</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.password}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(creds.password);
+                                Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกรหัสผ่านเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[9px] font-bold flex items-center gap-1 cursor-pointer transition shrink-0 h-[28px]"
+                            >
+                              คัดลอก
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Profile & Warranty fields */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {creds.profile && (
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">🖥️ โปรไฟล์</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.profile}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                          )}
+                          {creds.warrantyDate && (
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">📅 วันรับประกัน</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.warrantyDate}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Copy All Action */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const copyText = `อีเมล: ${creds.email || ''}\nรหัสผ่าน: ${creds.password || ''}\nโปรไฟล์: ${creds.profile || ''}\nวันรับประกัน: ${creds.warrantyDate || ''}`;
+                            navigator.clipboard.writeText(copyText);
+                            Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกข้อมูลทั้งหมดเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                          }}
+                          className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                        >
+                          คัดลอกข้อมูลทั้งหมด
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // Plain text display
+                  return (
+                    <div className="space-y-3">
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <p className="font-mono text-xs font-semibold text-slate-700 whitespace-pre-wrap break-all leading-relaxed select-all">
+                          {content || 'ไม่มีข้อมูล'}
+                        </p>
+                      </div>
+                      {content && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(content);
+                            Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกข้อมูลเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                          }}
+                          className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                        >
+                          คัดลอกข้อมูล
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAdminOrder(null)}
+                  className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition cursor-pointer text-center"
+                >
+                  ปิดหน้าต่าง
+                </button>
+              </div>
             </div>
           </div>
         </div>

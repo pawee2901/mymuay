@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, User, LogOut, LayoutDashboard, Menu, X, Coins, KeyRound } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, Menu, X, Coins, KeyRound, Bell } from 'lucide-react';
 
 export default function Header({ siteSetting }) {
   const pathname = usePathname();
@@ -11,6 +11,8 @@ export default function Header({ siteSetting }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [hasUnread, setHasUnread] = useState(false);
+  const [toastNotification, setToastNotification] = useState(null);
 
   const storeName = siteSetting?.storeName || 'mymuayy';
   const logoUrl = siteSetting?.logoUrl;
@@ -52,6 +54,137 @@ export default function Header({ siteSetting }) {
     return () => clearInterval(interval);
   }, [router]);
 
+  const playChime = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.12); // A5
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.45);
+    } catch (e) {
+      console.error('AudioContext error:', e);
+    }
+  };
+
+  // Web Push registration
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      registerPushNotifications();
+    }
+
+    async function registerPushNotifications() {
+      try {
+        const register = await navigator.serviceWorker.register('/sw.js', {
+          scope: '/'
+        });
+        console.log('[WEBPUSH SW] Service Worker Registered');
+
+        let subscription = await register.pushManager.getSubscription();
+
+        if (!subscription) {
+          const res = await fetch('/api/notifications/vapid-public-key');
+          if (!res.ok) return;
+          const { vapidPublicKey } = await res.json();
+          if (!vapidPublicKey) return;
+
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+
+          subscription = await register.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+          });
+        }
+
+        await fetch('/api/notifications/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription)
+        });
+      } catch (err) {
+        console.error('[WEBPUSH REGISTER FAILED]:', err);
+      }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+  }, [currentUser]);
+
+  // Unread Support Chat Polling
+  useEffect(() => {
+    if (!currentUser) {
+      setHasUnread(false);
+      return;
+    }
+
+    let lastNotifiedMsgId = null;
+
+    const checkUnread = async () => {
+      try {
+        const res = await fetch(`/api/chat/unread?t=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (data.success && data.latestMessage) {
+          const msg = data.latestMessage;
+          const lastRead = Number(localStorage.getItem('lastReadSupportChat') || 0);
+          const msgTime = new Date(msg.createdAt).getTime();
+
+          const hasNew = msgTime > lastRead;
+          setHasUnread(hasNew);
+
+          if (hasNew && msg.id !== lastNotifiedMsgId && pathname !== '/chat') {
+            lastNotifiedMsgId = msg.id;
+            playChime();
+            setToastNotification({
+              title: msg.username === 'Admin Support' ? '💬 ข้อความจากแอดมิน' : `💬 ข้อความจากลูกค้า: ${msg.username}`,
+              body: msg.message || 'ส่งไฟล์แนบ/รูปภาพ'
+            });
+
+            setTimeout(() => {
+              setToastNotification(null);
+            }, 5000);
+          }
+        } else {
+          setHasUnread(false);
+        }
+      } catch (err) {
+        console.error('Error polling unread support:', err);
+      }
+    };
+
+    checkUnread();
+    const interval = setInterval(checkUnread, 6000);
+    return () => clearInterval(interval);
+  }, [currentUser, pathname]);
+
+  // Clear unread indicator on chat page
+  useEffect(() => {
+    if (pathname === '/chat') {
+      setHasUnread(false);
+      localStorage.setItem('lastReadSupportChat', Date.now().toString());
+    }
+  }, [pathname]);
+
   const handleLogout = async () => {
     try {
       const res = await fetch('/api/auth/logout', { method: 'POST' });
@@ -74,16 +207,20 @@ export default function Header({ siteSetting }) {
 
   const navLink = (href, label, exact = false) => {
     const active = exact ? pathname === href : pathname.startsWith(href);
+    const showDot = href === '/chat' && hasUnread;
     return (
       <Link
         href={href}
-        className={`px-2 py-1 lg:px-3.5 lg:py-1.5 rounded-full text-xs lg:text-sm font-medium transition-premium whitespace-nowrap ${
+        className={`px-2 py-1 lg:px-3.5 lg:py-1.5 rounded-full text-xs lg:text-sm font-medium transition-premium whitespace-nowrap flex items-center gap-1.5 ${
           active
             ? 'bg-blue-600 text-white shadow-sm'
             : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
         }`}
       >
-        {label}
+        <span>{label}</span>
+        {showDot && (
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-sm shrink-0" />
+        )}
       </Link>
     );
   };
@@ -225,23 +362,26 @@ export default function Header({ siteSetting }) {
               { href: '/', label: 'หน้าแรก', exact: true },
               { href: '/categories', label: 'แอปพรีเมียม' },
               { href: '/games', label: 'เติมเกม' },
-              { href: '/chat', label: 'ห้องแชท & แจ้งปัญหา' },
+              { href: '/chat', label: 'ห้องแชท & แจ้งปัญหา', badge: hasUnread },
               { href: '/deposit', label: 'เติมเงิน' },
               { href: '/otp', label: '🔑 รับรหัส OTP' },
-            ].map(({ href, label, exact }) => {
+            ].map(({ href, label, exact, badge }) => {
               const active = exact ? pathname === href : pathname.startsWith(href);
               return (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`py-2 px-3 rounded-xl ${
+                  className={`py-2 px-3 rounded-xl flex items-center justify-between ${
                     active
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700'
                   }`}
                 >
-                  {label}
+                  <span>{label}</span>
+                  {badge && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shadow-sm shrink-0" />
+                  )}
                 </Link>
               );
             })}
@@ -281,6 +421,35 @@ export default function Header({ siteSetting }) {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Visual Toast Notification Popup */}
+      {toastNotification && (
+        <div 
+          onClick={() => {
+            router.push('/chat');
+            setToastNotification(null);
+          }}
+          className="fixed top-20 right-4 z-[9999] max-w-sm w-full bg-white/80 backdrop-blur-md border border-indigo-100 rounded-2xl p-4 shadow-xl flex items-start gap-3 cursor-pointer hover:bg-slate-50 transition-all duration-300 animate-slideLeft hover:scale-102"
+        >
+          <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+            <Bell className="w-5 h-5 animate-swing" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-bold text-slate-800 truncate">{toastNotification.title}</h4>
+            <p className="text-[10px] text-slate-500 mt-0.5 truncate leading-relaxed">{toastNotification.body}</p>
+            <span className="text-[9px] text-indigo-600 font-bold mt-1 block">คลิกเพื่อเปิดอ่านแชท ➔</span>
+          </div>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setToastNotification(null);
+            }}
+            className="text-slate-400 hover:text-slate-600 text-xs font-bold p-1 bg-transparent border-none cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
       )}
     </header>

@@ -58,7 +58,7 @@ export default function SignUp() {
         {/* Back Link */}
         <Link 
           href="/" 
-          className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-indigo-600 mb-6 transition-premium"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2563eb] hover:text-[#1d4ed8] text-xs font-bold rounded-xl transition-premium border border-blue-100/40 w-fit mb-6 shadow-3xs"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           กลับไปหน้าแรก

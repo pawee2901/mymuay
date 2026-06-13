@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma, sendLineNotification } from '@/db';
 import jwt from 'jsonwebtoken';
+import { sendPush } from '@/lib/webpush';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeyforwebshopphatstorestyle123';
 
@@ -151,6 +152,51 @@ export async function POST(request) {
           mediaType: mediaType || null,
         },
       });
+
+      // Send Web Push Notification to the recipient(s)
+      try {
+        let recipientIds = [];
+        if (msgIsAdmin) {
+          // Admin replies to customer: recipient is the customer
+          recipientIds = [msgUserId];
+        } else {
+          // Customer sends to admin: recipient is all admins
+          const admins = await prisma.user.findMany({
+            where: { role: 'ADMIN' },
+            select: { id: true }
+          });
+          recipientIds = admins.map(a => a.id);
+        }
+
+        const subscriptions = await prisma.pushSubscription.findMany({
+          where: { userId: { in: recipientIds } }
+        });
+
+        if (subscriptions.length > 0) {
+          const pushPayload = {
+            title: msgIsAdmin ? 'ข้อความใหม่จากฝ่ายสนับสนุน (Admin)' : `แชทติดต่อใหม่จากลูกค้า: ${user.username}`,
+            body: newMessage.message || 'ส่งรูปภาพหรือไฟล์แนบ',
+            icon: '/favicon.ico',
+            data: {
+              url: '/chat'
+            }
+          };
+
+          // Trigger push in background
+          Promise.all(
+            subscriptions.map(sub => 
+              sendPush(sub, pushPayload).then(res => {
+                if (res.expired) {
+                  // Clean up expired subscription
+                  return prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+                }
+              })
+            )
+          ).catch(err => console.error('[CHAT WEBPUSH ERROR]:', err));
+        }
+      } catch (pushErr) {
+        console.error('[CHAT WEBPUSH TRIGGER ERROR]:', pushErr);
+      }
 
       // Send LINE notification if sender is not admin (i.e. it is the customer opening/replying to a ticket)
       if (!msgIsAdmin) {

@@ -158,7 +158,7 @@ export default function ProductView({ product }) {
       {/* Breadcrumbs / Back button */}
       <Link 
         href="/categories" 
-        className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-[#2563eb] mb-6 transition-premium font-medium"
+        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2563eb] hover:text-[#1d4ed8] text-xs font-bold rounded-xl transition-premium border border-blue-100/40 w-fit mb-6 shadow-3xs"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
         กลับไปหมวดหมู่ทั้งหมด
@@ -389,19 +389,21 @@ export default function ProductView({ product }) {
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
           
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative flex flex-col items-center">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative flex flex-col items-center max-h-[85vh] md:max-h-[90vh]">
             
             {/* Close Button (Disabled during checking) */}
             <button 
               disabled={paymentStatus === 'checking'}
               onClick={() => setShowPaymentModal(false)}
-              className="absolute right-4 top-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-premium cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              className="absolute right-4 top-4 z-10 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-premium cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-white"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
 
-            {/* Wallet Deduct Title */}
-            <div className="flex flex-col items-center mb-4">
+            {/* Scrollable container for mobile scroll support */}
+            <div className="w-full overflow-y-auto flex flex-col items-center pt-2 pr-1 shrink-1 min-h-0">
+              {/* Wallet Deduct Title */}
+              <div className="flex flex-col items-center mb-4">
               <div className="px-3 py-1.5 bg-[#2563eb] text-white text-xs font-black tracking-widest rounded-lg flex items-center gap-1.5">
                 <Coins className="w-4.5 h-4.5" />
                 <span>ชำระผ่านกระเป๋าเงิน</span>
@@ -483,21 +485,135 @@ export default function ProductView({ product }) {
                 <p className="text-[10px] text-slate-400 mt-0.5">ระบบดึงข้อมูลจากสต๊อกและส่งมอบสินค้าเรียบร้อย</p>
 
                 {/* Delivered Stock Display Box */}
-                <div className="w-full bg-slate-50 border border-slate-200/80 rounded-2xl p-4 my-5 flex items-center justify-between text-left gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">รหัสของคุณ:</p>
-                    <p className="text-xs font-mono font-bold text-slate-800 break-all select-all mt-1">
-                      {deliveredContent}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={handleCopy}
-                    className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-premium cursor-pointer shrink-0"
-                    title="คัดลอกรหัส"
-                  >
-                    {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                </div>
+                {(() => {
+                  const isJson = deliveredContent && deliveredContent.trim().startsWith('{');
+                  let creds = null;
+                  if (isJson) {
+                    try {
+                      creds = JSON.parse(deliveredContent);
+                    } catch (e) {}
+                  }
+
+                  if (creds) {
+                    return (
+                      <div className="w-full my-4 bg-slate-50/50 border border-slate-200/80 rounded-2xl p-4 text-left shadow-xs">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 pb-1.5">📦 รายละเอียดบัญชีของคุณ:</p>
+                        
+                        <div className="space-y-3">
+                          {/* Email row */}
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">👤 อีเมล</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.email || ''}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(creds.email);
+                                Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกอีเมลเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                              }}
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shrink-0 h-[30px]"
+                            >
+                              <Copy className="w-3 h-3" /> คัดลอก
+                            </button>
+                          </div>
+
+                          {/* Password row */}
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">🔑 รหัสผ่าน</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.password || ''}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(creds.password);
+                                Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกรหัสผ่านเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                              }}
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shrink-0 h-[30px]"
+                            >
+                              <Copy className="w-3 h-3" /> คัดลอก
+                            </button>
+                          </div>
+
+                          {/* Profile & Warranty fields */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">🖥️ โปรไฟล์</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.profile || ''}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] font-bold text-slate-500 mb-0.5">📅 วันรับประกัน</label>
+                              <input
+                                type="text"
+                                readOnly
+                                value={creds.warrantyDate || ''}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Action Buttons Row */}
+                          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                            <button
+                              onClick={() => {
+                                const copyText = `อีเมล: ${creds.email}\nรหัสผ่าน: ${creds.password}\nโปรไฟล์: ${creds.profile}\nวันรับประกัน: ${creds.warrantyDate}`;
+                                navigator.clipboard.writeText(copyText);
+                                Swal.fire({ title: 'คัดลอกสำเร็จ', text: 'คัดลอกข้อมูลทั้งหมดเรียบร้อย', icon: 'success', timer: 1200, showConfirmButton: false });
+                              }}
+                              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                            >
+                              <Copy className="w-3.5 h-3.5" /> คัดลอกทั้งหมด
+                            </button>
+                            
+                            {guideImage ? (
+                              <button
+                                onClick={() => setShowGuideLightbox(true)}
+                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-[10px] flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                              >
+                                🔒 วิธีการเข้าสู่ระบบ
+                              </button>
+                            ) : (
+                              <div />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Fallback to standard plain text view
+                  return (
+                    <div className="w-full bg-slate-50 border border-slate-200/80 rounded-2xl p-4 my-5 flex items-center justify-between text-left gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">รหัสของคุณ:</p>
+                        <p className="text-xs font-mono font-bold text-slate-800 whitespace-pre-wrap break-words select-all mt-1 leading-relaxed">
+                          {deliveredContent}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={handleCopy}
+                        className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-premium cursor-pointer shrink-0"
+                        title="คัดลอกรหัส"
+                      >
+                        {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 {/* Guide Image display */}
                 {guideImage && (
@@ -571,6 +687,8 @@ export default function ProductView({ product }) {
                 </button>
               </div>
             )}
+
+            </div> {/* Close Scrollable container */}
 
           </div>
 

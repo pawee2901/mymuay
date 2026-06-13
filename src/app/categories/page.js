@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/db';
-import { Layers, Sparkles, AlertCircle, Inbox, ChevronRight, Eye } from 'lucide-react';
+import { Layers, Sparkles, AlertCircle, Inbox, ChevronRight, Eye, ArrowLeft } from 'lucide-react';
 import ClientPrice from '@/components/ClientPrice';
 
 export const revalidate = 0;
@@ -259,9 +259,10 @@ export default async function CategoriesPage({ searchParams }) {
             </div>
             <Link 
               href={activeSubcategory ? `/categories?id=${activeCategory.id}` : "/categories"} 
-              className="text-xs font-bold text-[#2563eb] hover:text-[#1d4ed8] underline transition-premium"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2563eb] hover:text-[#1d4ed8] text-xs font-bold rounded-xl transition-premium border border-blue-100/40 w-fit shrink-0 shadow-3xs"
             >
-              ← ย้อนกลับ
+              <ArrowLeft className="w-3.5 h-3.5" />
+              ย้อนกลับ
             </Link>
           </div>
 
