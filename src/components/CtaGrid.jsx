@@ -21,13 +21,6 @@ export default function CtaGrid({ cards }) {
       linkUrl: '/agent',
     },
     {
-      id: 'card3',
-      title: 'ระบบรับ OTP 24 ชั่วโมง',
-      description: 'รับรหัส OTP สำหรับยืนยันแอปพลิเคชันและบริการด้วยตัวเอง',
-      imageUrl: 'https://img.rdcw.co.th/images/be45613bbc4077dcc0cabe4080138e8be1a039648f2fba705b61fbb9848b8259.png',
-      linkUrl: '/otp',
-    },
-    {
       id: 'card4',
       title: 'เติมเกม / เติมเงินมือถือ',
       description: 'บริการเติมเงิน RoV, Free Fire, Valorant และเครือข่ายมือถือออโต้',
@@ -40,7 +33,7 @@ export default function CtaGrid({ cards }) {
   const displayCards = rawCards;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6">
       {displayCards.map((card) => {
         // Determine if it is a local router link or external URL
         const isExternal = card.linkUrl.startsWith('http://') || card.linkUrl.startsWith('https://');

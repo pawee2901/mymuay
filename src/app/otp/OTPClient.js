@@ -120,7 +120,7 @@ export default function OTPClient() {
     loadDomains();
   }, [loadApps, loadDomains]);
 
-  // ─── Read URL params → auto-jump to inbox ─────────────────────────────────
+  // ─── Read URL params → auto-jump to fetch OTP ─────────────────────────────
   useEffect(() => {
     const urlEmail = searchParams.get('email');
     const urlApp   = searchParams.get('app');
@@ -128,11 +128,19 @@ export default function OTPClient() {
       const app = appList.find(a => a.id === urlApp) || appList.find(a => a.id === 'other');
       setApp(app);
       setEmail(urlEmail);
-      setStep(3); // skip to inbox
+      setStep(4); // skip directly to OTP fetch result
     }
   }, [searchParams, appList]);
 
-  // ─── When step jumps to 3 from URL and inbox is empty → auto-load ─────────
+  // ─── When step jumps to 4 from URL and otpResult is empty → auto-fetch ────
+  useEffect(() => {
+    if (step === 4 && emailInput.includes('@') && !otpResult) {
+      fetchOtp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, emailInput]);
+
+  // ─── When step jumps to 3 and inbox is empty → auto-load ──────────────────
   useEffect(() => {
     if (step === 3 && emailInput.includes('@') && inbox.length === 0) {
       loadInbox();
@@ -173,6 +181,15 @@ export default function OTPClient() {
       const data = await res.json();
       if (res.ok && data.success) {
         setOtp(data); setStep(4);
+        if (data.code) {
+          try {
+            await navigator.clipboard.writeText(data.code);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (clipErr) {
+            console.error('Auto-copy failed:', clipErr);
+          }
+        }
         loadInbox(true);
       } else {
         setError(data.error || 'ไม่พบ OTP ในขณะนี้');
@@ -309,7 +326,7 @@ export default function OTPClient() {
                   </button>
                 </div>
 
-                <form onSubmit={e => { e.preventDefault(); loadInbox(); }} className="space-y-3">
+                <form onSubmit={e => { e.preventDefault(); fetchOtp(); }} className="space-y-3">
                   <div>
                     <label className="text-xs font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
                       <Mail className="w-3.5 h-3.5 text-purple-500" /> กรอกอีเมลที่ต้องการดึง OTP
@@ -351,8 +368,8 @@ export default function OTPClient() {
                   <button type="submit" disabled={isLoading}
                     className="w-full py-3.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-70"
                     style={{ background:'linear-gradient(135deg,#c084fc,#818cf8)', boxShadow:'0 4px 15px rgba(192,132,252,.35)' }}>
-                    {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Inbox className="w-4 h-4" />}
-                    {isLoading ? 'กำลังโหลด...' : 'ดูกล่องจดหมาย'}
+                    {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                    {isLoading ? 'กำลังค้นหา OTP...' : 'ค้นหา OTP ล่าสุด'}
                   </button>
 
                   <p className="text-center text-[11px] text-slate-400">
@@ -483,6 +500,31 @@ export default function OTPClient() {
                     {otpResult.subject && <p><span className="font-bold text-slate-700">หัวข้อ:</span> {otpResult.subject}</p>}
                     {otpResult.from    && <p><span className="font-bold text-slate-700">จาก:</span> {otpResult.from}</p>}
                     {otpResult.date    && <p><span className="font-bold text-slate-700">เวลา:</span> {timeAgo(otpResult.date)}</p>}
+                  </div>
+                )}
+
+                {/* OTP Display Card */}
+                {otpResult.code && (
+                  <div className="mb-5 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border-2 border-purple-200/60 rounded-2xl p-5 text-center relative overflow-hidden shadow-sm">
+                    <div className="text-[11px] font-bold text-purple-600 uppercase tracking-widest mb-2">รหัส OTP ล่าสุด</div>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <span className="text-4xl font-black text-slate-800 font-mono tracking-widest select-all bg-white/50 px-4 py-1.5 rounded-xl border border-white/80">{otpResult.code}</span>
+                      <button
+                        type="button"
+                        onClick={copyOtp}
+                        className={`px-4 py-2.5 rounded-xl border transition-all flex items-center justify-center gap-1.5 font-bold text-sm select-none ${
+                          copied 
+                            ? 'bg-green-500 border-green-500 text-white shadow-md' 
+                            : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 hover:text-slate-900 hover:scale-105 active:scale-95 shadow-sm'
+                        }`}
+                      >
+                        {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        <span>{copied ? 'คัดลอกแล้ว!' : 'คัดลอกรหัส'}</span>
+                      </button>
+                    </div>
+                    {copied && (
+                      <p className="text-[10px] text-green-600 font-bold mt-2">คัดลอกรหัสเข้าคลิปบอร์ดเรียบร้อยแล้วค่ะ! ✨</p>
+                    )}
                   </div>
                 )}
 

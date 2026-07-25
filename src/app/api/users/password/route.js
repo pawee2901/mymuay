@@ -50,8 +50,7 @@ export async function PUT(request) {
     await prisma.user.update({
       where: { id: authUser.userId },
       data: {
-        password: hashedPassword,
-        plainPassword: newPassword
+        password: hashedPassword
       }
     });
 

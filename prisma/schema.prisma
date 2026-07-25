@@ -13,7 +13,6 @@ model User {
   id        String               @id @default(cuid())
   username  String               @unique
   password  String
-  plainPassword String           @default("")
   role      String               @default("USER") // "USER" or "ADMIN"
   balance   Float                @default(0.0)
   createdAt DateTime             @default(now())
@@ -21,6 +20,8 @@ model User {
   deposits  DepositTransaction[]
   slipVerifications SlipVerification[]
   pushSubscriptions PushSubscription[]
+  apiRequests ApiRequest[]
+  apiKeys     ApiKey[]
 }
 
 model PushSubscription {
@@ -225,5 +226,31 @@ model OtpProvider {
   domains   String   // comma-separated list, e.g. "lico.moe, rdcw.plus"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey    String   @unique
+  status    String   @default("active") // "active", "revoked"
+  createdAt DateTime @default(now())
+}
+
+model ApiRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose         String
+  services        String
+  websiteUrl      String
+  mymuayUsername  String
+  serverIps       String
+  contactInfo     String
+  idCardPath      String
+  companyCertPath String?
+  status          String   @default("pending") // "pending", "approved", "rejected"
+  rejectedReason  String?
+  createdAt       DateTime @default(now())
 }
 

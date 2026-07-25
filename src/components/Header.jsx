@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, User, LogOut, LayoutDashboard, Menu, X, Coins, KeyRound, Bell } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, Menu, X, Coins, KeyRound, Bell, Cpu } from 'lucide-react';
 
 export default function Header({ siteSetting }) {
   const pathname = usePathname();
@@ -152,7 +152,7 @@ export default function Header({ siteSetting }) {
           const hasNew = msgTime > lastRead;
           setHasUnread(hasNew);
 
-          if (hasNew && msg.id !== lastNotifiedMsgId && pathname !== '/chat') {
+          if (hasNew && msg.id !== lastNotifiedMsgId && !(pathname === '/chat' && localStorage.getItem('activeChatTab') === 'support')) {
             lastNotifiedMsgId = msg.id;
             playChime();
             setToastNotification({
@@ -176,14 +176,6 @@ export default function Header({ siteSetting }) {
     const interval = setInterval(checkUnread, 6000);
     return () => clearInterval(interval);
   }, [currentUser, pathname]);
-
-  // Clear unread indicator on chat page
-  useEffect(() => {
-    if (pathname === '/chat') {
-      setHasUnread(false);
-      localStorage.setItem('lastReadSupportChat', Date.now().toString());
-    }
-  }, [pathname]);
 
   const handleLogout = async () => {
     try {
@@ -262,6 +254,17 @@ export default function Header({ siteSetting }) {
             >
               <KeyRound className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
               รับ OTP
+            </Link>
+            <Link
+              href="/profile?tab=api"
+              className={`px-2 py-1 lg:px-3.5 lg:py-1.5 rounded-full text-xs lg:text-sm font-bold transition-all flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                pathname === '/profile'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border border-indigo-250'
+              }`}
+            >
+              <Cpu className="w-3 lg:w-3.5 h-3 lg:h-3.5" />
+              เชื่อมต่อ API
             </Link>
           </nav>
         </div>
@@ -365,6 +368,7 @@ export default function Header({ siteSetting }) {
               { href: '/chat', label: 'ห้องแชท & แจ้งปัญหา', badge: hasUnread },
               { href: '/deposit', label: 'เติมเงิน' },
               { href: '/otp', label: '🔑 รับรหัส OTP' },
+              { href: '/profile?tab=api', label: '🔌 เชื่อมต่อ API' },
             ].map(({ href, label, exact, badge }) => {
               const active = exact ? pathname === href : pathname.startsWith(href);
               return (

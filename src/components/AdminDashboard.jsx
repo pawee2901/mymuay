@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { 
   BarChart3, 
@@ -32,13 +33,22 @@ import {
   Eye,
   EyeOff,
   UserPlus,
-  UserCheck
+  UserCheck,
+  Cpu,
+  FileText,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 import EmailSettingsPanel from '@/components/EmailSettingsPanel';
 import Swal from 'sweetalert2';
 
 export default function AdminDashboard({ categories, subcategories = [], products, orders, users, adminUser, ctaCards, depositSetting, carouselSlides, siteSetting }) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [activeTab, setActiveTab] = useState('stats');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +77,69 @@ export default function AdminDashboard({ categories, subcategories = [], product
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   const [pinErrorMessage, setPinErrorMessage] = useState('');
+
+  // API Requests Management State
+  const [adminRequests, setAdminRequests] = useState([]);
+  const [selectedApiRequest, setSelectedApiRequest] = useState(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [apiRequestsLoading, setApiRequestsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'apiRequests') {
+      fetchApiRequests();
+    }
+  }, [activeTab]);
+
+  const fetchApiRequests = async () => {
+    try {
+      setApiRequestsLoading(true);
+      const res = await fetch('/api/admin/api-requests');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setAdminRequests(data.requests);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching API requests:', err);
+    } finally {
+      setApiRequestsLoading(false);
+    }
+  };
+
+  const handleApiRequestAction = async (id, action, rejectedReason = '') => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/admin/api-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action, rejectedReason })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'สำเร็จ',
+          text: data.message,
+          timer: 1500,
+          showConfirmButton: false
+        });
+        fetchApiRequests();
+        setSelectedApiRequest(null);
+      } else {
+        throw new Error(data.error || 'เกิดข้อผิดพลาดในการดำเนินการ');
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ล้มเหลว',
+        text: err.message
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Check pin verification status on mount
   useEffect(() => {
@@ -1902,6 +1975,16 @@ export default function AdminDashboard({ categories, subcategories = [], product
             จัดการอีเมล IMAP (OTP)
           </button>
 
+          <button 
+            onClick={() => { setActiveTab('apiRequests'); setIsMobileMenuOpen(false); }}
+            className={`flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold rounded-xl transition-premium cursor-pointer ${
+              activeTab === 'apiRequests' ? 'bg-purple-50 text-purple-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Cpu className="w-4.5 h-4.5" />
+            คำขอใช้งาน API (OTP)
+          </button>
+
         </nav>
       </aside>
 
@@ -3123,7 +3206,6 @@ export default function AdminDashboard({ categories, subcategories = [], product
                   <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px]">
                     <th className="py-2.5">ชื่อผู้ใช้งาน</th>
                     <th className="py-2.5 text-right">ยอดเงิน</th>
-                    <th className="py-2.5 text-center">รหัสผ่าน</th>
                     <th className="py-2.5 text-center">ยศ/บทบาท</th>
                     <th className="py-2.5">วันที่สมัคร</th>
                     <th className="py-2.5 text-center">เครื่องมือจัดการ</th>
@@ -3134,24 +3216,6 @@ export default function AdminDashboard({ categories, subcategories = [], product
                     <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                       <td className="py-3 font-semibold text-slate-700">{u.username}</td>
                       <td className="py-3 text-right font-bold text-indigo-600">{u.balance?.toLocaleString() || 0} ฿</td>
-                      <td className="py-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className={`font-mono text-slate-600 font-semibold ${visiblePasswords[u.id] && !u.plainPassword ? 'text-amber-500 text-[10px]' : ''}`}>
-                            {visiblePasswords[u.id] ? (u.plainPassword || 'ไม่ได้บันทึกรหัสผ่าน') : '••••••'}
-                          </span>
-                          <button
-                            onClick={() => togglePasswordVisibility(u.id)}
-                            className="text-slate-400 hover:text-slate-600 p-1 focus:outline-none transition-colors cursor-pointer"
-                            title={visiblePasswords[u.id] ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                          >
-                            {visiblePasswords[u.id] ? (
-                              <EyeOff className="w-3.5 h-3.5" />
-                            ) : (
-                              <Eye className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
                       <td className="py-3 text-center">
                         <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
                           u.role === 'ADMIN' 
@@ -3864,6 +3928,87 @@ export default function AdminDashboard({ categories, subcategories = [], product
           </div>
         )}
 
+        {/* API REQUESTS TAB */}
+        {activeTab === 'apiRequests' && (
+          <div className="animate-fadeIn space-y-6">
+            <div className="bg-white border border-slate-200/50 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-indigo-600 animate-pulse" />
+                  <h3 className="text-sm font-bold text-slate-800 font-sans">จัดการคำขอเชื่อมต่อ API (OTP Key)</h3>
+                </div>
+                <button 
+                  onClick={fetchApiRequests}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg transition-premium cursor-pointer"
+                >
+                  รีเฟรชข้อมูล
+                </button>
+              </div>
+
+              {apiRequestsLoading ? (
+                <div className="text-center py-10">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-indigo-600" />
+                  <p className="text-xs text-slate-500 font-sans">กำลังโหลดรายการคำขอ API...</p>
+                </div>
+              ) : adminRequests.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 font-sans">
+                  <p>ยังไม่มีการยื่นคำขออนุมัติ API ในขณะนี้</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-slate-400 font-bold">
+                        <th className="py-2.5 px-3">ผู้ใช้งาน</th>
+                        <th className="py-2.5 px-3">วัตถุประสงค์</th>
+                        <th className="py-2.5 px-3">บริการ</th>
+                        <th className="py-2.5 px-3">IP Whitelist</th>
+                        <th className="py-2.5 px-3">สถานะ</th>
+                        <th className="py-2.5 px-3">ยื่นเมื่อ</th>
+                        <th className="py-2.5 px-3 text-right">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 font-medium">
+                      {adminRequests.map((req) => (
+                        <tr key={req.id} className="hover:bg-slate-50/50">
+                          <td className="py-3 px-3 text-slate-800 font-bold">{req.user?.username}</td>
+                          <td className="py-3 px-3 text-slate-600 truncate max-w-[150px]">{req.purpose}</td>
+                          <td className="py-3 px-3 text-slate-600">{req.services}</td>
+                          <td className="py-3 px-3 font-mono text-[10px] text-indigo-600">{req.serverIps}</td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              req.status === 'approved' ? 'bg-green-55 bg-green-50 text-green-700 border border-green-100' :
+                              req.status === 'rejected' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                              'bg-amber-50 text-amber-700 border border-amber-100'
+                            }`}>
+                              {req.status === 'approved' ? 'อนุมัติแล้ว' :
+                               req.status === 'rejected' ? 'ปฏิเสธ' : 'รอตรวจสอบ'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-slate-400 text-[10px]">{new Date(req.createdAt).toLocaleString('th-TH')}</td>
+                          <td className="py-3 px-3 text-right">
+                            <button 
+                              onClick={() => {
+                                setSelectedApiRequest(req);
+                                setRejectReasonInput('');
+                              }}
+                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-bold rounded-lg transition-premium cursor-pointer"
+                            >
+                              ตรวจสอบ
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+
+          </div>
+        )}
+
       </div>
 
       {/* 1. Add User Modal */}
@@ -4273,7 +4418,194 @@ export default function AdminDashboard({ categories, subcategories = [], product
           </div>
         </div>
       )}
-      
+
+      {/* Details Modal (Rendered via React Portal into document.body for true full screen coverage) */}
+      {mounted && selectedApiRequest && createPortal(
+        <div className="fixed inset-0 z-[999999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 font-sans animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden max-w-lg w-full max-h-[85vh] flex flex-col animate-scaleUp">
+            <div className="bg-gradient-to-tr from-slate-800 to-slate-950 p-5 text-white flex justify-between items-center shrink-0">
+              <h3 className="text-sm font-bold flex items-center gap-1.5">
+                <Cpu className="w-4.5 h-4.5 text-indigo-400" />
+                รายละเอียดคำขอใช้งาน API : {selectedApiRequest.user?.username}
+              </h3>
+              <button 
+                onClick={() => setSelectedApiRequest(null)}
+                className="text-white hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0 text-xs leading-relaxed text-slate-700">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">ผู้ยื่นคำขอ</span>
+                  <span className="font-bold text-slate-800 text-sm">{selectedApiRequest.user?.username}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block uppercase">สถานะปัจจุบัน</span>
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold mt-1 ${
+                    selectedApiRequest.status === 'approved' ? 'bg-green-50 text-green-700 border border-green-100' :
+                    selectedApiRequest.status === 'rejected' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                    'bg-amber-50 text-amber-700 border border-amber-100'
+                  }`}>
+                    {selectedApiRequest.status === 'approved' ? 'อนุมัติแล้ว' :
+                     selectedApiRequest.status === 'rejected' ? 'ปฏิเสธ' : 'รอตรวจสอบ'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block">วัตถุประสงค์การใช้งาน</span>
+                  <p className="font-semibold text-slate-800 bg-slate-50 p-2.5 rounded-xl border border-slate-100">{selectedApiRequest.purpose}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block">บริการที่จะขอใช้ดึง OTP</span>
+                  <p className="font-semibold text-slate-800 bg-slate-50 p-2.5 rounded-xl border border-slate-100">{selectedApiRequest.services}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block">URL เว็บไซต์ที่จะนำไปเชื่อมต่อ</span>
+                  <a href={selectedApiRequest.websiteUrl} target="_blank" rel="noreferrer" className="text-indigo-600 font-semibold underline break-all block mt-1 hover:text-indigo-700">
+                    {selectedApiRequest.websiteUrl}
+                  </a>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block">ชื่อบัญชี mymuay</span>
+                  <p className="font-semibold text-slate-800 mt-0.5">{selectedApiRequest.mymuayUsername}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block">IP Server สำหรับยิงขอ API</span>
+                  <p className="font-mono font-bold text-indigo-700 bg-slate-50 p-2 rounded border border-slate-100 mt-1">{selectedApiRequest.serverIps}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 block">ข้อมูลติดต่อผู้รับผิดชอบ</span>
+                  <p className="whitespace-pre-line font-medium text-slate-800 bg-slate-50 p-2.5 rounded-xl border border-slate-100 mt-1">{selectedApiRequest.contactInfo}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-3 space-y-3">
+                <span className="text-[10px] font-bold text-slate-400 block">เอกสารประกอบการพิจารณา</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <a 
+                    href={selectedApiRequest.idCardPath} target="_blank" rel="noreferrer" 
+                    className="flex items-center justify-center gap-1.5 py-2.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl text-slate-700 font-bold transition-all text-center"
+                  >
+                    <FileText className="w-4 h-4 text-indigo-550" />
+                    ดูบัตรประชาชน
+                  </a>
+                  {selectedApiRequest.companyCertPath ? (
+                    <a 
+                      href={selectedApiRequest.companyCertPath} target="_blank" rel="noreferrer" 
+                      className="flex items-center justify-center gap-1.5 py-2.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl text-slate-700 font-bold transition-all text-center"
+                    >
+                      <FileText className="w-4 h-4 text-indigo-550" />
+                      ดูใบรับรองบริษัท
+                    </a>
+                  ) : (
+                    <div className="py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 font-bold text-center flex items-center justify-center">
+                      ไม่มีใบรับรองบริษัท
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedApiRequest.status === 'rejected' && (
+                <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl text-rose-800">
+                  <span className="font-bold block text-[10px] uppercase">เหตุผลที่ไม่ผ่านการอนุมัติ:</span>
+                  <p className="font-semibold mt-1 bg-white/60 p-2 rounded border border-rose-100/50">{selectedApiRequest.rejectedReason}</p>
+                </div>
+              )}
+
+              {selectedApiRequest.status === 'pending' && (
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">ระบุเหตุผลในการไม่อนุมัติ (ถ้ามี)</label>
+                  <input 
+                    type="text"
+                    value={rejectReasonInput}
+                    onChange={e => setRejectReasonInput(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 text-xs"
+                    placeholder="เหตุผลประกอบการปฏิเสธคำขอ"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 p-5 border-t border-slate-100 flex gap-2 justify-end shrink-0">
+              <button 
+                onClick={() => setSelectedApiRequest(null)}
+                className="px-4 py-2 border border-slate-250 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                ปิดหน้าต่าง
+              </button>
+
+              {selectedApiRequest.status === 'pending' && (
+                <>
+                  <button 
+                    onClick={() => {
+                      if (!rejectReasonInput) {
+                        Swal.fire({ icon: 'warning', title: 'คำเตือน', text: 'กรุณาระบุเหตุผลในช่องข้อความก่อนกดไม่อนุมัติค่ะ' });
+                        return;
+                      }
+                      handleApiRequestAction(selectedApiRequest.id, 'reject', rejectReasonInput);
+                    }}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    ไม่อนุมัติคำขอ
+                  </button>
+                  <button 
+                    onClick={() => {
+                      Swal.fire({
+                        title: 'อนุมัติการใช้งาน?',
+                        text: `คุณต้องการอนุมัติสิทธิ์การดึง API ให้แก่ผู้ใช้ ${selectedApiRequest.user?.username} ใช่หรือไม่? ระบบจะสร้าง API Key ส่งไปให้ผู้ใช้ทันทีค่ะ`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#4f46e5',
+                        cancelButtonColor: '#64748b',
+                        confirmButtonText: 'ใช่, อนุมัติเลย',
+                        cancelButtonText: 'ยกเลิก'
+                      }).then((result) => {
+                        if (result.isConfirmed) {
+                          handleApiRequestAction(selectedApiRequest.id, 'approve');
+                        }
+                      });
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    อนุมัติการใช้งาน
+                  </button>
+                </>
+              )}
+
+              {selectedApiRequest.status === 'approved' && (
+                <button 
+                  onClick={() => {
+                    Swal.fire({
+                      title: 'ระงับสิทธิ์ใช้งาน API?',
+                      text: `คุณต้องการยกเลิกและระงับสิทธิ์การใช้งาน API Key ของผู้ใช้ ${selectedApiRequest.user?.username} หรือไม่? คีย์ปัจจุบันจะถูกยกเลิกทันที`,
+                      icon: 'warning',
+                      showCancelButton: true,
+                      confirmButtonColor: '#ef4444',
+                      cancelButtonColor: '#64748b',
+                      confirmButtonText: 'ใช่, ระงับสิทธิ์',
+                      cancelButtonText: 'ยกเลิก'
+                    }).then((result) => {
+                      if (result.isConfirmed) {
+                        handleApiRequestAction(selectedApiRequest.id, 'revoke');
+                      }
+                    });
+                  }}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  ระงับสิทธิ์ API Key
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 }

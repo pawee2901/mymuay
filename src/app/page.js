@@ -12,7 +12,6 @@ import {
   ArrowRight,
   TrendingUp
 } from 'lucide-react';
-import HomeCarousel from '@/components/HomeCarousel';
 import CtaGrid from '@/components/CtaGrid';
 import ClientPrice from '@/components/ClientPrice';
 
@@ -134,13 +133,8 @@ export default async function Home() {
   return (
     <div className="flex-1 w-full bg-slate-50/50 pb-16 font-sans">
       
-      {/* 1. Header Hero / Carousel Banner */}
+      {/* 1. Interactive CTA Cards Row */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 mt-6">
-        <HomeCarousel slides={carouselSlides} />
-      </div>
-
-      {/* 2. Interactive CTA Cards Row */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-8 mt-8">
         <CtaGrid cards={ctaCards} />
       </div>
 

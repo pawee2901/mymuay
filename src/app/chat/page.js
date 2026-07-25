@@ -66,6 +66,16 @@ export default function ChatPage() {
     checkAuth();
   }, []);
 
+  // 1.5. Sync activeChatTab in localStorage for Header notification checking
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('activeChatTab', activeTab);
+    }
+    return () => {
+      localStorage.removeItem('activeChatTab');
+    };
+  }, [activeTab, currentUser]);
+
   // 2. Scroll to bottom helpers
   const scrollToBottomGroup = () => {
     groupEndRef.current?.scrollIntoView({ behavior: 'smooth' });

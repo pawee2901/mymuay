@@ -196,8 +196,14 @@ export async function POST(request) {
       // -------------------------------------------------------
       // Channel B: Private IMAP (from DB)
       // -------------------------------------------------------
-      const imapSetting = await prisma.emailImapSetting.findUnique({
-        where: { domain: lowerEmail }
+      const imapSetting = await prisma.emailImapSetting.findFirst({
+        where: {
+          OR: [
+            { domain: lowerEmail },
+            { domain: lowerDomain }
+          ],
+          isActive: true
+        }
       });
 
       if (imapSetting && imapSetting.isActive) {
@@ -230,8 +236,12 @@ export async function POST(request) {
           const fetchOptions = { bodies: ['HEADER', 'TEXT', ''], struct: true, markSeen: false };
 
           const messages = await connection.search(searchCriteria, fetchOptions);
+          
+          // Sort messages by UID descending (newest first)
+          messages.sort((a, b) => b.attributes.uid - a.attributes.uid);
+          const limitedMessages = messages.slice(0, 5);
 
-          for (const item of messages) {
+          for (const item of limitedMessages) {
             const allPart = item.parts.find(part => part.which === '');
             if (!allPart) continue;
 

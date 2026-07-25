@@ -131,8 +131,12 @@ export async function POST(request) {
     const messages = await connection.search(searchCriteria, fetchOptions);
     connection.end();
 
+    // Sort messages by UID descending (newest first)
+    messages.sort((a, b) => b.attributes.uid - a.attributes.uid);
+    const limitedMessages = messages.slice(0, 5);
+
     const parsed_mails = [];
-    for (const item of messages) {
+    for (const item of limitedMessages) {
       const allPart = item.parts.find(p => p.which === '');
       if (!allPart) continue;
 

@@ -54,8 +54,12 @@ async function fetchFromImap(setting) {
   );
   connection.end();
 
+  // Sort messages by UID descending (newest first)
+  messages.sort((a, b) => b.attributes.uid - a.attributes.uid);
+  const limitedMessages = messages.slice(0, 5);
+
   const parsed = [];
-  for (const item of messages) {
+  for (const item of limitedMessages) {
     const part = item.parts.find(p => p.which === '');
     if (!part) continue;
     try {

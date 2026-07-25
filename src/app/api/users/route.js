@@ -31,7 +31,6 @@ export async function GET(request) {
         username: true,
         role: true,
         balance: true,
-        plainPassword: true,
         createdAt: true,
         _count: {
           select: { orders: true }
@@ -86,7 +85,6 @@ export async function POST(request) {
       data: {
         username: username.trim(),
         password: hashedPassword,
-        plainPassword: password,
         role: role || 'USER',
         balance: parseFloat(balance || 0.0)
       }
@@ -146,7 +144,6 @@ export async function PUT(request) {
         return NextResponse.json({ error: 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร' }, { status: 400 });
       }
       updateData.password = await bcrypt.hash(password, 10);
-      updateData.plainPassword = password;
     }
 
     const updatedUser = await prisma.user.update({
@@ -156,8 +153,7 @@ export async function PUT(request) {
         id: true,
         username: true,
         role: true,
-        balance: true,
-        plainPassword: true
+        balance: true
       }
     });
 
