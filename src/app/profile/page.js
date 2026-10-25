@@ -306,7 +306,7 @@ export default function ProfilePage() {
       if (type === 'orders') {
         return pType === 'ACCOUNT' && !cName.includes('มือถือ') && !cName.includes('เกม');
       } else if (type === 'games') {
-        return pType === 'TOPUP' || cName.includes('เกม');
+        return pType === 'TOPUP' || pType === 'CASHCARD' || cName.includes('เกม');
       } else if (type === 'mobile') {
         return cName.includes('มือถือ') || cName.includes('โทรศัพท์');
       }

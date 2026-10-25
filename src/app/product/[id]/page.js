@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/db';
 import ProductView from '@/components/ProductView';
 
@@ -29,6 +29,11 @@ export default async function ProductPage({ params }) {
 
   if (!product) {
     notFound();
+  }
+
+  // Game top-ups and cash cards have their own purchase page
+  if (product.type !== 'ACCOUNT') {
+    redirect(`/games/${product.id}`);
   }
 
   // Calculate total stock (sum of options stock, or main stock if no options exist)

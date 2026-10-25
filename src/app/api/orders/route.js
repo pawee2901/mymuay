@@ -1,260 +1,97 @@
 import { NextResponse } from 'next/server';
-import { prisma, sendLineNotification } from '@/db';
 import jwt from 'jsonwebtoken';
-import { topupGame } from '@/lib/wondd';
+import { prisma } from '@/db';
+import { getPublicBaseUrl } from '@/lib/wepay';
+import { placeOrders, syncPendingOrder, CheckoutError } from '@/lib/orders';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeyforwebshopphatstorestyle123';
 
-export async function POST(request) {
+function getUser(request) {
+  const token = request.cookies.get('token')?.value;
+  if (!token) return null;
   try {
-    const token = request.cookies.get('token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อนทำการสั่งซื้อสินค้า' }, { status: 401 });
-    }
+    return jwt.verify(token, JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
 
-    let decodedUser;
-    try {
-      decodedUser = jwt.verify(token, JWT_SECRET);
-    } catch (e) {
-      return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' }, { status: 401 });
-    }
+function serializeOrder(order) {
+  return {
+    id: order.id,
+    status: order.status,
+    content: order.content,
+    targetId: order.targetId,
+    totalPrice: order.totalPrice,
+    productName: order.product?.name,
+    optionName: order.productOption?.name,
+    guideImage: order.stockItem?.guideImage || null,
+    createdAt: order.createdAt,
+  };
+}
 
+// POST { items: [{ productId, productOptionId, targetId, quantity }] }
+// Single-item body { productId, ... } is still accepted for older callers.
+export async function POST(request) {
+  const user = getUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบก่อนทำการสั่งซื้อสินค้า' }, { status: 401 });
+  }
+
+  try {
     const body = await request.json();
-    const { productId, productOptionId, targetId, quantity = 1 } = body;
+    const items = Array.isArray(body.items) ? body.items : [body];
 
-    if (!productId) {
-      return NextResponse.json({ error: 'กรุณาระบุรหัสสินค้า' }, { status: 400 });
-    }
-
-    // Load user first to verify role and balance
-    const dbUser = await prisma.user.findUnique({
-      where: { id: decodedUser.userId }
+    const result = await placeOrders({
+      userId: user.userId,
+      items,
+      baseUrl: getPublicBaseUrl(request),
     });
 
-    if (!dbUser) {
-      return NextResponse.json({ error: 'ไม่พบข้อมูลผู้ใช้งาน' }, { status: 404 });
-    }
-
-    // 1. Fetch Product
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: {
-        stockItems: { where: { isUsed: false } },
-        options: true
-      }
+    const orders = await prisma.order.findMany({
+      where: { id: { in: result.orders.map((o) => o.id) } },
+      include: { product: true, productOption: true, stockItem: { select: { guideImage: true } } },
+      orderBy: { createdAt: 'asc' },
     });
+    const serialized = orders.map(serializeOrder);
 
-    if (!product) {
-      return NextResponse.json({ error: 'ไม่พบสินค้าในระบบ' }, { status: 404 });
-    }
-
-    // Check options
-    let chosenOption = null;
-    if (product.options && product.options.length > 0) {
-      if (!productOptionId) {
-        return NextResponse.json({ error: 'กรุณาระบุตัวเลือกสินค้า' }, { status: 400 });
-      }
-      chosenOption = product.options.find(opt => opt.id === productOptionId);
-      if (!chosenOption) {
-        return NextResponse.json({ error: 'ไม่พบตัวเลือกสินค้าที่ระบุ' }, { status: 404 });
-      }
-    }
-
-    const isAgent = dbUser.role === 'AGENT';
-    const pricePerUnit = chosenOption 
-      ? (isAgent && chosenOption.agentPrice > 0 ? chosenOption.agentPrice : chosenOption.price)
-      : (isAgent && product.agentPrice > 0 ? product.agentPrice : product.price);
-    const totalPrice = pricePerUnit * quantity;
-
-    let orderContent = '';
-    let chosenStockItems = [];
-    let externalTopup = null;
-
-    // 2. Handle digital accounts delivery (ACCOUNT)
-    if (product.type === 'ACCOUNT') {
-      let availableStock = [];
-      if (chosenOption) {
-        // Find stock items associated with this specific option
-        availableStock = await prisma.stockItem.findMany({
-          where: { 
-            productId: product.id, 
-            productOptionId: chosenOption.id, 
-            isUsed: false 
-          }
-        });
-      } else {
-        // Find stock items associated with no option
-        availableStock = await prisma.stockItem.findMany({
-          where: { 
-            productId: product.id, 
-            productOptionId: null, 
-            isUsed: false 
-          }
-        });
-      }
-
-      if (availableStock.length < quantity) {
-        return NextResponse.json({ error: 'สินค้าในคลังไม่เพียงพอ' }, { status: 400 });
-      }
-
-      // Claim the stock items
-      chosenStockItems = availableStock.slice(0, quantity);
-      orderContent = chosenStockItems.map(item => item.content).join('\n');
-    } 
-    // 3. Handle Game Top-ups (TOPUP)
-    else if (product.type === 'TOPUP') {
-      if (!targetId) {
-        return NextResponse.json({ error: 'กรุณากรอกข้อมูล UID / OpenID ของผู้เล่น' }, { status: 400 });
-      }
-      if (product.gameServiceCode === 'htp') {
-        const match = targetId.match(/(.+)\s*\|\s*AID:\s*(\d{18})\s*\|\s*Server:\s*(.+)/i);
-        if (!match) {
-          return NextResponse.json({ error: 'รูปแบบข้อมูลผู้เล่นสำหรับ Heartopia ไม่ถูกต้อง (AID ต้องเป็นตัวเลข 18 หลักเท่านั้น)' }, { status: 400 });
-        }
-      }
-      orderContent = `เติมเงิน ${product.name} สำเร็จไปยัง ID/UID: ${targetId} เรียบร้อยแล้ว (ออโต้)`;
-    }
-
-    // Set Expiration Date for subscriptions (default: 30 days from now)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiration
-
-    if (dbUser.balance < totalPrice) {
-      return NextResponse.json({ error: 'ยอดเงินในกระเป๋าเงินไม่เพียงพอ กรุณาเติมเงินเข้าระบบก่อนทำรายการ' }, { status: 400 });
-    }
-
-    if (product.type === 'TOPUP') {
-      const serviceCode = product.gameServiceCode?.trim();
-      const packCode = (chosenOption?.externalPackCode || product.externalPackCode || '').trim();
-
-      try {
-        externalTopup = await topupGame({
-          serviceCode,
-          packCode,
-          gameId: targetId.trim(),
-        });
-      } catch (error) {
-        console.error('WonDD topup error:', error);
-        return NextResponse.json({ error: error.message || 'เติมเกมผ่าน WonDD ไม่สำเร็จ' }, { status: 502 });
-      }
-
-      orderContent = [
-        `เติมเกม ${product.name}${chosenOption ? ` (${chosenOption.name})` : ''} สำเร็จ`,
-        `Player ID / UID: ${targetId}`,
-        `WonDD Order ID: ${externalTopup.orderid || '-'}`,
-        `Packcode: ${packCode}`,
-      ].join('\n');
-    }
-
-    // 4. Create Order, deduct balance & Update stock items in a database transaction
-    const order = await prisma.$transaction(async (tx) => {
-      // Deduct balance from User
-      await tx.user.update({
-        where: { id: decodedUser.userId },
-        data: {
-          balance: {
-            decrement: totalPrice
-          }
-        }
-      });
-
-      // Create the order
-      const newOrder = await tx.order.create({
-        data: {
-          userId: decodedUser.userId,
-          productId: product.id,
-          productOptionId: chosenOption ? chosenOption.id : null,
-          targetId: targetId || null,
-          quantity: quantity,
-          price: pricePerUnit,
-          totalPrice: totalPrice,
-          status: 'COMPLETED',
-          content: orderContent,
-          externalOrderId: externalTopup?.orderid || null,
-          externalStatus: externalTopup ? 'accepted' : null,
-          externalRawResponse: externalTopup ? JSON.stringify(externalTopup) : null,
-          expiresAt: product.type === 'ACCOUNT' ? expiresAt : null,
-        }
-      });
-
-      // If digital account, flag stock items as used
-      if (product.type === 'ACCOUNT' && chosenStockItems.length > 0) {
-        for (const item of chosenStockItems) {
-          await tx.stockItem.update({
-            where: { id: item.id },
-            data: {
-              isUsed: true,
-              usedAt: new Date(),
-              orderId: newOrder.id
-            }
-          });
-        }
-      }
-
-      return newOrder;
+    return NextResponse.json({
+      success: true,
+      orders: serialized,
+      order: serialized[0], // backward compatibility (ProductView)
+      total: result.total,
+      balance: result.balance,
     });
-
-    // 5. Automation Warning Logs (Stock Alert & Payments Notifications)
-    // Send LINE Notification / Terminal Alerts
-    console.log(`\n================== AUTOMATED ALERTS ==================`);
-    console.log(`[PAYMENT SUCCESS] ลูกค้าสั่งซื้อสำเร็จ: ออเดอร์ ${order.id}`);
-    console.log(`- สินค้า: ${product.name}${chosenOption ? ` (${chosenOption.name})` : ''}`);
-    console.log(`- ยอดรวม: ${order.totalPrice} บาท`);
-    if (order.targetId) console.log(`- ส่งไปยัง UID: ${order.targetId}`);
-    
-    let msg = `🛍️ มีการสั่งซื้อสินค้าใหม่สำเร็จ!\n` +
-              `• ออเดอร์: #${order.id}\n` +
-              `• ผู้ใช้: ${decodedUser.username}\n` +
-              `• สินค้า: ${product.name}${chosenOption ? ` (${chosenOption.name})` : ''}\n` +
-              `• จำนวน: ${quantity} ชิ้น\n` +
-              `• ยอดรวม: ${order.totalPrice.toLocaleString()} บาท`;
-    if (order.targetId) {
-      msg += `\n• ข้อมูลจัดส่ง/UID: ${order.targetId}`;
-    }
-    
-    // Check remaining stock for low stock warning
-    if (product.type === 'ACCOUNT') {
-      let remainingStockCount = 0;
-      if (chosenOption) {
-        const optionStockCount = await prisma.stockItem.count({
-          where: { productId: product.id, productOptionId: chosenOption.id, isUsed: false }
-        });
-        remainingStockCount = optionStockCount;
-      } else {
-        const prodStockCount = await prisma.stockItem.count({
-          where: { productId: product.id, productOptionId: null, isUsed: false }
-        });
-        remainingStockCount = prodStockCount;
-      }
-
-      const optionNameText = chosenOption ? ` (${chosenOption.name})` : '';
-      if (remainingStockCount === 0) {
-        console.log(`[STOCK EMPTY ALERT] ⚠️ ด่วน! สินค้า "${product.name}${optionNameText}" หมดสต๊อกแล้ว!`);
-        msg += `\n\n⚠️ ด่วน! สินค้า "${product.name}${optionNameText}" หมดสต๊อกแล้ว!`;
-      } else if (remainingStockCount < 3) {
-        console.log(`[LOW STOCK ALERT] ⚠️ เตือน! สินค้า "${product.name}${optionNameText}" เหลือในคลังเพียง ${remainingStockCount} ชิ้น!`);
-        msg += `\n\n⚠️ เตือน! สินค้า "${product.name}${optionNameText}" เหลือน้อยกว่า 3 ชิ้น (คงเหลือ: ${remainingStockCount} ชิ้น)`;
-      }
-    }
-    console.log(`======================================================\n`);
-
-    sendLineNotification(msg).catch(err => console.error('Error sending Line Notification:', err));
-
-    const orderWithStock = await prisma.order.findUnique({
-      where: { id: order.id },
-      include: {
-        stockItem: {
-          select: {
-            guideImage: true
-          }
-        }
-      }
-    });
-
-    return NextResponse.json({ success: true, order: orderWithStock || order });
-
   } catch (error) {
+    if (error instanceof CheckoutError) {
+      return NextResponse.json({ error: error.message, ...error.extra }, { status: error.status });
+    }
     console.error('Order creation error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดภายในระบบในการสร้างออเดอร์' }, { status: 500 });
   }
+}
+
+// GET ?ids=a,b,c — poll status of the user's own orders; pending wePAY orders are re-checked
+export async function GET(request) {
+  const user = getUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+  }
+
+  const ids = (new URL(request.url).searchParams.get('ids') || '').split(',').filter(Boolean).slice(0, 50);
+  if (ids.length === 0) return NextResponse.json({ success: true, orders: [] });
+
+  const include = { product: true, productOption: true, stockItem: { select: { guideImage: true } } };
+  let orders = await prisma.order.findMany({ where: { id: { in: ids }, userId: user.userId }, include });
+
+  const staleCutoff = Date.now() - 20 * 1000;
+  const toSync = orders.filter((o) => o.status === 'PENDING' && o.externalOrderId && new Date(o.createdAt).getTime() < staleCutoff);
+  if (toSync.length > 0) {
+    for (const order of toSync) {
+      await syncPendingOrder(order).catch((err) => console.error('wePAY sync error:', err.message));
+    }
+    orders = await prisma.order.findMany({ where: { id: { in: ids }, userId: user.userId }, include });
+  }
+
+  return NextResponse.json({ success: true, orders: orders.map(serializeOrder) });
 }

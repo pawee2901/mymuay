@@ -1,80 +1,66 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/db';
 import { findGameBySlug } from '@/lib/gameCatalog';
+import { getWepayCatalog } from '@/lib/wepay';
 import GameTopupView from '@/components/GameTopupView';
 
 export const revalidate = 0;
 
-function parseOptionDisplay(option) {
-  const [pointLabel, originalPriceText] = option.name.split('|').map((part) => part.trim());
-  let originalPrice;
+const include = {
+  category: true,
+  options: { orderBy: [{ position: 'asc' }, { price: 'asc' }] },
+};
 
-  if (originalPriceText) {
-    originalPrice = Number(originalPriceText);
-  } else {
-    // Estimate original price from price with ~5.5% discount
-    const estimated = option.price / 0.945;
-    originalPrice = Math.round(estimated);
-    if (originalPrice === 67) originalPrice = 69;
-    if (originalPrice === 33) originalPrice = 35;
+async function findProduct(slug) {
+  const byId = await prisma.product.findUnique({ where: { id: slug }, include });
+  if (byId) return byId;
+
+  // Old URLs such as /games/rov still work
+  const legacy = findGameBySlug(slug);
+  if (legacy) {
+    return prisma.product.findFirst({ where: { categoryId: legacy.id, type: { in: ['TOPUP', 'CASHCARD'] } }, include });
   }
+  return prisma.product.findFirst({ where: { wepayCompany: slug.toUpperCase() }, include });
+}
 
-  return {
-    id: option.id,
-    name: option.name,
-    pointLabel: pointLabel || option.name,
-    originalPrice: Number.isFinite(originalPrice) ? originalPrice : option.price,
-    price: option.price,
-    agentPrice: option.agentPrice || 0,
-  };
+// Packages that wePAY reports as temporarily unavailable
+async function unavailableAmounts(product) {
+  try {
+    const catalog = await getWepayCatalog();
+    const company = (catalog[product.wepayType] || []).find((c) => c.company_id === product.wepayCompany);
+    return new Set((company?.denomination || []).filter((d) => d.product_availability === false).map((d) => d.price));
+  } catch {
+    return new Set();
+  }
 }
 
 export default async function GameDetailPage({ params }) {
-  const resolvedParams = await params;
-  const staticGame = findGameBySlug(resolvedParams.slug);
+  const { slug } = await params;
+  const product = await findProduct(decodeURIComponent(slug));
 
-  if (!staticGame) {
+  if (!product || !product.isActive || !product.wepayCompany || product.options.length === 0) {
     notFound();
   }
 
-  const dbCat = await prisma.category.findUnique({
-    where: { id: staticGame.id }
-  });
+  const unavailable = await unavailableAmounts(product);
 
-  const game = {
-    ...staticGame,
-    name: dbCat?.name || staticGame.name,
-    image: dbCat?.image || staticGame.image
-  };
-
-  const product = await prisma.product.findFirst({
-    where: {
-      type: 'TOPUP',
-      categoryId: game.id,
-    },
-    include: {
-      options: {
-        orderBy: [
-          { position: 'asc' },
-          { price: 'asc' }
-        ],
-      },
-    },
-  });
-
-  if (!product) {
-    notFound();
-  }
-
-  const serializedProduct = {
+  const serialized = {
     id: product.id,
     name: product.name,
-    options: product.options.map(parseOptionDisplay),
+    description: product.description,
+    image: product.category?.image || product.image,
+    wepayType: product.wepayType,
+    wepayCompany: product.wepayCompany,
+    wepayRefFormat: product.wepayRefFormat,
+    wepayServers: product.wepayServers,
+    options: product.options.map((option) => ({
+      id: option.id,
+      name: option.name,
+      price: option.price,
+      agentPrice: option.agentPrice || 0,
+      available: !unavailable.has(option.wepayAmount),
+    })),
   };
 
-  return (
-    <div className="flex-1 bg-white">
-      <GameTopupView game={game} product={serializedProduct} />
-    </div>
-  );
+  return <GameTopupView product={serialized} />;
 }

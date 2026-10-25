@@ -14,8 +14,29 @@ import {
 } from 'lucide-react';
 import CtaGrid from '@/components/CtaGrid';
 import ClientPrice from '@/components/ClientPrice';
+import ActivityTicker from '@/components/ActivityTicker';
 
 export const revalidate = 0; // Disable caching to keep stats and stock count fully live
+
+const maskName = (username = '') => `${username.slice(0, 2)}***`;
+
+// Latest signups and orders, merged newest-first, for the scrolling ticker
+async function getRecentActivity() {
+  const [users, orders] = await Promise.all([
+    prisma.user.findMany({ orderBy: { createdAt: 'desc' }, take: 10, select: { username: true, createdAt: true } }),
+    prisma.order.findMany({
+      where: { status: { in: ['COMPLETED', 'PENDING'] } },
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+      select: { createdAt: true, user: { select: { username: true } }, product: { select: { name: true } } },
+    }),
+  ]);
+
+  return [
+    ...users.map((u) => ({ type: 'signup', name: maskName(u.username), createdAt: u.createdAt.toISOString() })),
+    ...orders.map((o) => ({ type: 'order', name: maskName(o.user?.username || 'ลูกค้า'), product: o.product.name.trim(), createdAt: o.createdAt.toISOString() })),
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
 
 const fallbackCarouselSlides = [
   {
@@ -38,8 +59,10 @@ export default async function Home() {
   let carouselSlides = fallbackCarouselSlides;
   let categories = [];
   let products = [];
+  let activity = [];
 
   try {
+  activity = await getRecentActivity();
   // Fetch stats directly from SQLite using Prisma
   totalUsers = await prisma.user.count();
   totalProducts = await prisma.product.count();
@@ -132,7 +155,10 @@ export default async function Home() {
 
   return (
     <div className="flex-1 w-full bg-slate-50/50 pb-16 font-sans">
-      
+
+      {/* 0. Live activity ticker (new members / new orders) */}
+      <ActivityTicker events={activity} />
+
       {/* 1. Interactive CTA Cards Row */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 mt-6">
         <CtaGrid cards={ctaCards} />

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db';
 import jwt from 'jsonwebtoken';
+import { syncPendingOrder } from '@/lib/orders';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeyforwebshopphatstorestyle123';
 
@@ -22,6 +23,20 @@ export async function GET(request) {
   }
 
   try {
+    // Re-check a few wePAY orders that are still pending (in case the callback was missed)
+    const stalePending = await prisma.order.findMany({
+      where: {
+        userId: authUser.userId,
+        status: 'PENDING',
+        externalOrderId: { not: null },
+        createdAt: { lt: new Date(Date.now() - 60 * 1000) },
+      },
+      take: 5,
+    });
+    for (const order of stalePending) {
+      await syncPendingOrder(order).catch((err) => console.error('wePAY sync error:', err.message));
+    }
+
     // Fetch user details including orders and deposits
     const user = await prisma.user.findUnique({
       where: { id: authUser.userId },

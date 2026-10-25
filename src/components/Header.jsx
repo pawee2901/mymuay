@@ -3,7 +3,22 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, User, LogOut, LayoutDashboard, Menu, X, Coins, KeyRound, Bell, Cpu } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, Menu, X, Coins, KeyRound, Bell, Cpu, ShoppingCart } from 'lucide-react';
+import { useCart } from '@/components/cart/CartContext';
+
+function CartLink() {
+  const { count } = useCart();
+  return (
+    <Link href="/cart" className="relative p-2 rounded-full text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-premium shrink-0" aria-label="ตะกร้าสินค้า">
+      <ShoppingCart className="w-5 h-5" />
+      {count > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 export default function Header({ siteSetting }) {
   const pathname = usePathname();
@@ -283,6 +298,8 @@ export default function Header({ siteSetting }) {
             <Search className="absolute left-2.5 w-3 h-3 lg:w-4 lg:h-4 text-blue-400" />
           </form>
 
+          <CartLink />
+
           {/* User */}
           {currentUser ? (
             <div className="flex items-center gap-1 lg:gap-2 shrink-0">
@@ -325,7 +342,8 @@ export default function Header({ siteSetting }) {
         </div>
 
         {/* Mobile toggle */}
-        <div className="md:hidden flex items-center gap-2">
+        <div className="md:hidden flex items-center gap-1.5">
+          <CartLink />
           {currentUser && (
             <Link href="/deposit" className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold">
               <Coins className="w-3 h-3" />

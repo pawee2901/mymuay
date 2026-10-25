@@ -42,14 +42,19 @@ import {
 import EmailSettingsPanel from '@/components/EmailSettingsPanel';
 import Swal from 'sweetalert2';
 
-export default function AdminDashboard({ categories, subcategories = [], products, orders, users, adminUser, ctaCards, depositSetting, carouselSlides, siteSetting }) {
+// When `embedded` is set, AdminShell provides navigation, PIN and session handling,
+// and this component only renders the panel named by `forcedTab`.
+export default function AdminDashboard({ categories, subcategories = [], products, orders, users, adminUser, ctaCards, depositSetting, carouselSlides, siteSetting, embedded = false, forcedTab }) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const [activeTab, setActiveTab] = useState('stats');
+  const [activeTab, setActiveTab] = useState(forcedTab || 'stats');
+  useEffect(() => {
+    if (forcedTab) setActiveTab(forcedTab);
+  }, [forcedTab]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -151,7 +156,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
   // Idle timeout detector (1 hour)
   useEffect(() => {
-    if (!isPinVerified) return;
+    if (!isPinVerified || embedded) return;
 
     let timeoutId;
     const IDLE_TIME = 3600000; // 1 hour in ms
@@ -194,7 +199,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
 
   // Auto-refresh data every 5 minutes
   useEffect(() => {
-    if (!isPinVerified) return;
+    if (!isPinVerified || embedded) return;
 
     const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in ms
     const intervalId = setInterval(() => {
@@ -1721,7 +1726,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
     }
   };
 
-  if (!isPinVerified) {
+  if (!embedded && !isPinVerified) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 px-4 select-none relative overflow-hidden font-sans">
         {/* Soft blue glowing backgrounds */}
@@ -1822,9 +1827,9 @@ export default function AdminDashboard({ categories, subcategories = [], product
   }
 
   return (
-    <div className="w-full flex flex-col md:flex-row min-h-[calc(100vh-64px)] font-sans bg-slate-50/50">
+    <div className={embedded ? "w-full font-sans" : "w-full flex flex-col md:flex-row min-h-[calc(100vh-64px)] font-sans bg-slate-50/50"}>
       
-      {/* Mobile Header for Sidebar Toggle */}
+      {!embedded && (<>{/* Mobile Header for Sidebar Toggle */}
       <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-200 p-4 sticky top-[64px] z-40">
         <h1 className="text-sm font-bold text-slate-800 flex items-center gap-2">
           <ShieldCheck className="w-4.5 h-4.5 text-indigo-600" />
@@ -1986,10 +1991,10 @@ export default function AdminDashboard({ categories, subcategories = [], product
           </button>
 
         </nav>
-      </aside>
+      </aside></>)}
 
       {/* Main Content Area */}
-      <div className="flex-1 w-full min-w-0 p-4 md:p-8">
+      <div className={embedded ? "w-full min-w-0" : "flex-1 w-full min-w-0 p-4 md:p-8"}>
         
         {/* Message Notifications */}
         {successMsg && (

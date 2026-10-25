@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/db';
-import AdminDashboard from '@/components/AdminDashboard';
+import AdminShell from '@/components/admin/AdminShell';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeyforwebshopphatstorestyle123';
 
@@ -53,7 +53,7 @@ export default async function AdminPage() {
 
   // 3. Fetch all orders for logs and stats
   const orders = await prisma.order.findMany({
-    include: { product: true },
+    include: { product: true, productOption: true, user: { select: { username: true } } },
     orderBy: { createdAt: 'desc' }
   });
 
@@ -161,16 +161,27 @@ export default async function AdminPage() {
     type: p.type,
     gameServiceCode: p.gameServiceCode || '',
     externalPackCode: p.externalPackCode || '',
+    wepayType: p.wepayType,
+    wepayCompany: p.wepayCompany,
+    isActive: p.isActive,
+    categoryImage: p.category.image || '',
+    description: p.description,
     categoryName: p.category.name,
     categoryId: p.categoryId,
     subCategoryId: p.subCategoryId,
     stockCount: p.stockItems.length,
-    options: p.options.map(opt => ({ id: opt.id, name: opt.name, price: opt.price, agentPrice: opt.agentPrice || 0.0, externalPackCode: opt.externalPackCode || '', position: opt.position || 0 }))
+    options: p.options.map(opt => ({ id: opt.id, name: opt.name, price: opt.price, agentPrice: opt.agentPrice || 0.0, externalPackCode: opt.externalPackCode || '', wepayAmount: opt.wepayAmount || 0, position: opt.position || 0, stockCount: p.stockItems.filter(s => s.productOptionId === opt.id).length }))
   }));
 
   const serializedOrders = orders.map(o => ({
     id: o.id,
     productName: o.product.name,
+    productType: o.product.type,
+    optionName: o.productOption?.name || '',
+    username: o.user?.username || '-',
+    externalOrderId: o.externalOrderId,
+    externalStatus: o.externalStatus,
+    price: o.price,
     targetId: o.targetId,
     quantity: o.quantity,
     totalPrice: o.totalPrice,
@@ -208,13 +219,12 @@ export default async function AdminPage() {
     linkUrl: s.linkUrl
   }));
 
+  // All fields are passed (admin-only page) so saving one settings panel never blanks the others.
+  // The wePAY password itself is never sent to the browser.
+  const { wepayPassword, ...depositSettingFields } = depositSetting;
   const serializedDepositSetting = {
-    bankName: depositSetting.bankName,
-    accountNumber: depositSetting.accountNumber,
-    accountName: depositSetting.accountName,
-    qrImageUrl: depositSetting.qrImageUrl,
-    lineChannelAccessToken: depositSetting.lineChannelAccessToken,
-    lineAdminUserId: depositSetting.lineAdminUserId
+    ...depositSettingFields,
+    wepayPassword: wepayPassword ? '********' : '',
   };
 
   const serializedSiteSetting = {
@@ -225,7 +235,7 @@ export default async function AdminPage() {
 
   return (
     <div className="flex-1 bg-slate-50/50">
-      <AdminDashboard 
+      <AdminShell 
         categories={serializedCategories}
         subcategories={serializedSubcategories}
         products={serializedProducts}

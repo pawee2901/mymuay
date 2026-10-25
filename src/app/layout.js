@@ -3,6 +3,7 @@ import "./globals.css";
 import 'sweetalert2/dist/sweetalert2.min.css';
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { CartProvider } from "@/components/cart/CartContext";
 import { prisma } from "@/db";
 import Script from "next/script";
 
@@ -80,11 +81,13 @@ export default async function RootLayout({ children }) {
             }, false);
           `}
         </Script>
-        <Header siteSetting={siteSetting} />
-        <main className="flex-1 flex flex-col">
-          {children}
-        </main>
-        <Footer siteSetting={siteSetting} />
+        <CartProvider>
+          <Header siteSetting={siteSetting} />
+          <main className="flex-1 flex flex-col">
+            {children}
+          </main>
+          <Footer siteSetting={siteSetting} />
+        </CartProvider>
       </body>
     </html>
   );
