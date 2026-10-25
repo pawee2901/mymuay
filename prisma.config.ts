@@ -9,6 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"] || "file:./prisma/dev.db",
+    // CLI commands (db push) need Supabase's direct/session connection, not the transaction pooler
+    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"],
   },
 });

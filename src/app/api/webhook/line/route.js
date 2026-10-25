@@ -48,7 +48,7 @@ export async function POST(request) {
       // Find product matching name
       const product = await prisma.product.findFirst({
         where: {
-          name: { contains: searchQuery }
+          name: { contains: searchQuery, mode: 'insensitive' }
         }
       });
 

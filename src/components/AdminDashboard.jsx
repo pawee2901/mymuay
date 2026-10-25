@@ -2437,30 +2437,6 @@ export default function AdminDashboard({ categories, subcategories = [], product
                       )}
                     </div>
                   </div>
-                  {newProdType === 'TOPUP' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-emerald-700 mb-1">WonDD servicecode</label>
-                        <input
-                          type="text"
-                          placeholder="เช่น rov, freefire, undawn"
-                          value={newProdGameServiceCode}
-                          onChange={(e) => setNewProdGameServiceCode(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-emerald-100 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold text-emerald-700 mb-1">WonDD packcode หลัก</label>
-                        <input
-                          type="text"
-                          placeholder="ใส่เมื่อไม่มีตัวเลือกราคา เช่น R00011"
-                          value={newProdExternalPackCode}
-                          onChange={(e) => setNewProdExternalPackCode(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-emerald-100 bg-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-                    </div>
-                  )}
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลิงก์ภาพสินค้า (แนะนำ: 500x500 px) / อัปโหลดรูปภาพ</label>
                     <div className="flex gap-2 items-center">
@@ -2595,17 +2571,7 @@ export default function AdminDashboard({ categories, subcategories = [], product
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">WonDD packcode</label>
-                        <input
-                          type="text"
-                          placeholder="เช่น R00012"
-                          value={newOptionExternalPackCode}
-                          onChange={(e) => setNewOptionExternalPackCode(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
+                    <div className="grid grid-cols-1 gap-2">
                       <div>
                         <label className="block text-[10px] font-semibold text-slate-500 mb-1">ลำดับแสดงผล (น้อยขึ้นก่อน)</label>
                         <input
@@ -2658,7 +2624,6 @@ export default function AdminDashboard({ categories, subcategories = [], product
                                   <th className="py-2 px-2 min-w-[120px]">ชื่อตัวเลือก</th>
                                   <th className="py-2 px-2 w-20">ราคาทั่วไป (฿)</th>
                                   <th className="py-2 px-2 w-20">ราคาส่ง (฿)</th>
-                                  <th className="py-2 px-2 w-28">Packcode (WonDD)</th>
                                   <th className="py-2 px-2 w-14 text-center">ลำดับ</th>
                                   <th className="py-2 px-2 w-16 text-center">จัดการ</th>
                                 </tr>
@@ -2719,17 +2684,6 @@ export default function AdminDashboard({ categories, subcategories = [], product
                                           value={edited.agentPrice}
                                           onChange={(e) => handleInlineChange(opt.id, 'agentPrice', e.target.value)}
                                           className="w-full px-1.5 py-0.5 border border-slate-200 rounded text-slate-700 text-right focus:outline-none focus:border-blue-500 font-medium text-xs"
-                                        />
-                                      </td>
-
-                                      {/* Packcode Input */}
-                                      <td className="py-1 px-2">
-                                        <input
-                                          type="text"
-                                          value={edited.externalPackCode}
-                                          onChange={(e) => handleInlineChange(opt.id, 'externalPackCode', e.target.value)}
-                                          className="w-full px-2 py-0.5 border border-slate-200 rounded text-slate-700 font-mono focus:outline-none focus:border-blue-500 text-xs"
-                                          placeholder="ไม่มี"
                                         />
                                       </td>
 

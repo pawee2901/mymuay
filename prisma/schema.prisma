@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql" // Supabase
 }
 
 model User {
@@ -58,8 +58,8 @@ model Product {
   agentPrice    Float          @default(0.0)
   image         String
   type          String         @default("ACCOUNT") // "ACCOUNT" (digital code/account) or "TOPUP" (game ref ID)
-  gameServiceCode String       @default("") // WonDD servicecode, e.g. rov, freefire
-  externalPackCode String      @default("") // WonDD packcode when product has no options (legacy)
+  gameServiceCode String       @default("") // legacy (old WonDD servicecode, unused)
+  externalPackCode String      @default("") // legacy (old WonDD packcode, unused)
   wepayType     String         @default("") // wePAY: "gtopup" | "cashcard" | "mtopup"
   wepayCompany  String         @default("") // wePAY company_id, e.g. FREEFIRE, ROV-M, TMN
   wepayRefFormat String        @default("") // wePAY refs_format.ref1 regex (PHP style)
@@ -120,7 +120,7 @@ model ProductOption {
   name       String
   price      Float
   agentPrice Float       @default(0.0)
-  externalPackCode String @default("") // WonDD packcode (legacy)
+  externalPackCode String @default("") // legacy (old WonDD packcode, unused)
   wepayAmount Float      @default(0) // wePAY pay_to_amount (denomination price)
   position   Int         @default(0)
   stockItems StockItem[]

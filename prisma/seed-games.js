@@ -1,10 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
-const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3');
+const { PrismaPg } = require('@prisma/adapter-pg');
 require('dotenv').config();
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL || 'file:./prisma/dev.db',
-});
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
 const prisma = new PrismaClient({ adapter });
 

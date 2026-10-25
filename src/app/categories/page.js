@@ -79,8 +79,8 @@ export default async function CategoriesPage({ searchParams }) {
 
   if (search) {
     whereCondition.OR = [
-      { name: { contains: search } },
-      { description: { contains: search } }
+      { name: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } }
     ];
   }
 
