@@ -1,82 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db';
-import imaps from 'imap-simple';
-import { simpleParser } from 'mailparser';
+import { extractOtpCode, fetchImapMails } from '@/lib/otpMail';
 
 export const dynamic = 'force-dynamic';
 
 function getDomainId(domain) {
   return domain.trim().replace(/\./g, '');
-}
-
-function extractOtpCode(html = '', text = '') {
-  // Strip style and script tags content completely
-  let cleanHtml = html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-
-  // Remove HTML tags
-  cleanHtml = cleanHtml.replace(/<[^>]*>?/gm, ' ');
-
-  // Combine text and cleaned html
-  let content = (text || '') + ' ' + cleanHtml;
-
-  // Remove hex color codes (e.g. #121212 or #fff)
-  content = content.replace(/#([a-fA-F0-9]{3,8})\b/g, ' ');
-
-  const m6 = content.match(/\b(\d{6})\b/);
-  if (m6) return m6[1];
-  const m48 = content.match(/\b(\d{4,8})\b/);
-  if (m48) return m48[1];
-  return null;
-}
-
-async function fetchFromImap(setting) {
-  const config = {
-    imap: {
-      user: setting.user,
-      password: setting.password,
-      host: setting.host,
-      port: setting.port,
-      tls: setting.tls,
-      authTimeout: 15000,
-      connTimeout: 15000,
-      tlsOptions: { rejectUnauthorized: false }
-    }
-  };
-  const connection = await imaps.connect(config);
-  await connection.openBox('INBOX');
-
-  const sinceDate = new Date(Date.now() - 6 * 3600 * 1000);
-  const messages = await connection.search(
-    ['ALL', ['SINCE', sinceDate.toISOString()]],
-    { bodies: [''], struct: true, markSeen: false }
-  );
-  connection.end();
-
-  // Sort messages by UID descending (newest first)
-  messages.sort((a, b) => b.attributes.uid - a.attributes.uid);
-  const limitedMessages = messages.slice(0, 5);
-
-  const parsed = [];
-  for (const item of limitedMessages) {
-    const part = item.parts.find(p => p.which === '');
-    if (!part) continue;
-    try {
-      const mail = await simpleParser(Buffer.from(part.body));
-      parsed.push({
-        id:      String(item.attributes.uid),
-        subject: mail.subject || '(ไม่มีหัวข้อ)',
-        from:    mail.from?.text || '',
-        date:    mail.date || item.attributes.date,
-        html:    mail.html || mail.textAsHtml || '',
-        text:    mail.text || '',
-      });
-    } catch { /* skip */ }
-  }
-  // newest first
-  parsed.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return parsed;
 }
 
 export async function GET(request) {
@@ -154,14 +83,14 @@ export async function GET(request) {
     }
 
     try {
-      const mails = await fetchFromImap(setting);
+      const mails = await fetchImapMails(setting, { email, sinceHours: 6, limit: Math.min(size || 20, 30) });
       return NextResponse.json({
         success: true,
         source: 'imap',
         email,
         mails: mails.map(m => ({
           id:      m.id,
-          subject: m.subject,
+          subject: m.subject || '(ไม่มีหัวข้อ)',
           from:    m.from,
           date:    m.date,
           preview: (m.text || m.subject || '').substring(0, 120),

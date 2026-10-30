@@ -1,48 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db';
-import imaps from 'imap-simple';
-import { simpleParser } from 'mailparser';
+import { extractOtpCode, fetchImapMails } from '@/lib/otpMail';
 
 export const dynamic = 'force-dynamic';
 
 function getDomainId(domain) {
   return domain.trim().replace(/\./g, '');
-}
-
-// Robust OTP extraction from mail body
-function extractOtpCode(html = '', text = '') {
-  let cleanHtml = html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-
-  cleanHtml = cleanHtml.replace(/<[^>]*>?/gm, ' ');
-  let content = (text || '') + ' ' + cleanHtml;
-
-  // Remove hex color codes
-  content = content.replace(/#([a-fA-F0-9]{3,8})\b/g, ' ');
-
-  // 1. Keyword-based matching for OTP
-  const keywordPatterns = [
-    /(?:code|otp|passcode|verification|pin|confirm|ref|wepay|netflix|disney|trueid|openai|gpt|รหัส|ยืนยัน|ตัวตน|ระบบ|รหัสผ่าน)[\s:=_\-\#\.]*(\d{4,8})\b/i,
-    /(\d{4,8})\s*(?:is your|คือรหัส|คือโค้ด|คือ|รหัส)/i
-  ];
-
-  for (const pattern of keywordPatterns) {
-    const match = content.match(pattern);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-
-  // 2. Fallback to standard 6-digit number
-  let match = content.match(/\b(\d{6})\b/);
-  if (match) return match[1];
-
-  // 3. Fallback to standard 4-8 digit number
-  match = content.match(/\b(\d{4,8})\b/);
-  if (match) return match[1];
-
-  return null;
 }
 
 export async function GET(request) {
@@ -174,48 +137,17 @@ export async function GET(request) {
       });
 
       if (imapSetting && imapSetting.isActive) {
-        const config = {
-          imap: {
-            user: imapSetting.user,
-            password: imapSetting.password,
-            host: imapSetting.host,
-            port: imapSetting.port,
-            tls: imapSetting.tls,
-            authTimeout: 12000,
-            tlsOptions: { rejectUnauthorized: false }
-          }
-        };
-
         try {
-          const connection = await imaps.connect(config);
-          await connection.openBox('INBOX');
-
-          const delay = 6 * 3600 * 1000; // 6 hours
-          const sinceDate = new Date(Date.now() - delay);
-          const searchCriteria = ['ALL', ['SINCE', sinceDate.toISOString()]];
-          const fetchOptions = { bodies: [''], struct: true, markSeen: false };
-
-          const messages = await connection.search(searchCriteria, fetchOptions);
-          connection.end();
-
-          messages.sort((a, b) => b.attributes.uid - a.attributes.uid);
-          const limitedMessages = messages.slice(0, limit);
-
-          for (const item of limitedMessages) {
-            const allPart = item.parts.find(p => p.which === '');
-            if (!allPart) continue;
-
-            const parsed = await simpleParser(Buffer.from(allPart.body));
-            const htmlBody = parsed.html || parsed.textAsHtml || parsed.text || '';
-            const otpCode = extractOtpCode(htmlBody, parsed.text || '');
-
+          const mails = await fetchImapMails(imapSetting, { email: lowerEmail, sinceHours: 6, limit });
+          for (const mail of mails) {
+            const otpCode = extractOtpCode(mail.html, mail.text);
             allResults.push({
               email: lowerEmail,
               otp: otpCode || 'ไม่พบตัวเลขรหัส',
-              subject: parsed.subject || 'ไม่มีหัวข้อ',
-              sender: parsed.from?.text || '',
-              received_at: parsed.date || item.attributes.date || new Date().toISOString(),
-              body_preview: (parsed.text || parsed.subject || '').substring(0, 1500)
+              subject: mail.subject || 'ไม่มีหัวข้อ',
+              sender: mail.from || '',
+              received_at: mail.date || new Date().toISOString(),
+              body_preview: (mail.text || mail.subject || '').substring(0, 1500)
             });
           }
         } catch (imapErr) {

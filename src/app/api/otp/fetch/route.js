@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db';
-import imaps from 'imap-simple';
-import { simpleParser } from 'mailparser';
+import { extractOtpCode, matchesApp, fetchImapMails } from '@/lib/otpMail';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,67 +9,6 @@ const MAILY_API_URL = process.env.MAILY_API_URL || "https://api.maily.space/mail
 // Convert domain to maily domainId: lico.moe -> licomoe
 function getDomainId(domain) {
   return domain.trim().replace(/\./g, '');
-}
-
-function matchesApp(from, subject, appId, senderList = []) {
-  const lf = (from || '').toLowerCase();
-  const ls = (subject || '').toLowerCase();
-  const la = (appId || '').toLowerCase();
-
-  // If "other" is selected, match all emails
-  if (la === 'other') {
-    return true;
-  }
-
-  // If we have custom sender emails configured in DB, prioritize matching them
-  if (senderList && senderList.length > 0) {
-    const matched = senderList.some(email => lf.includes(email) || ls.includes(email));
-    if (matched) return true;
-  }
-
-  if (la.includes('netflix')) {
-    return lf.includes('netflix') || ls.includes('netflix');
-  } else if (la.includes('disney')) {
-    return lf.includes('disney') || ls.includes('disney');
-  } else if (la.includes('true') || la.includes('trueid')) {
-    return lf.includes('trueid') || ls.includes('trueid') || lf.includes('true') || ls.includes('true');
-  } else if (la.includes('chat') || la.includes('openai') || la.includes('gpt')) {
-    return lf.includes('openai') || ls.includes('openai') || lf.includes('chatgpt') || ls.includes('chatgpt');
-  } else if (la.includes('prime') || la.includes('amazon')) {
-    return lf.includes('prime') || ls.includes('prime') || lf.includes('amazon') || ls.includes('amazon');
-  } else if (la.includes('spotify')) {
-    return lf.includes('spotify') || ls.includes('spotify');
-  } else if (la.includes('youtube')) {
-    return lf.includes('youtube') || ls.includes('youtube') || lf.includes('google') || ls.includes('google');
-  }
-  // Fallback: match by appId keyword in from/subject
-  return lf.includes(la) || ls.includes(la);
-}
-
-function extractOtpCode(html = '', text = '') {
-  // Strip style and script tags content completely
-  let cleanHtml = html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-
-  // Remove HTML tags
-  cleanHtml = cleanHtml.replace(/<[^>]*>?/gm, ' ');
-
-  // Combine text and cleaned html
-  let content = (text || '') + ' ' + cleanHtml;
-
-  // Remove hex color codes (e.g. #121212 or #fff)
-  content = content.replace(/#([a-fA-F0-9]{3,8})\b/g, ' ');
-
-  // Try 6-digit first (most common OTP)
-  let match = content.match(/\b(\d{6})\b/);
-  if (match) return match[1];
-
-  // Try 4-8 digits
-  match = content.match(/\b(\d{4,8})\b/);
-  if (match) return match[1];
-
-  return null;
 }
 
 export async function POST(request) {
@@ -109,6 +47,7 @@ export async function POST(request) {
 
     let matchingMails = [];
     let senderList = [];
+    let regexPattern = null;
 
     try {
       const dbApp = await prisma.otpApp.findUnique({
@@ -117,6 +56,7 @@ export async function POST(request) {
       if (dbApp && dbApp.senderEmails) {
         senderList = dbApp.senderEmails.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       }
+      regexPattern = dbApp?.regexPattern || null;
     } catch (err) {
       console.error('[FETCH] Error loading app config:', err);
     }
@@ -162,7 +102,7 @@ export async function POST(request) {
       if (mailId) {
         const specificMail = mails.find(m => (m.id || m._id) === mailId);
         if (specificMail) {
-          const otpCode = extractOtpCode(specificMail.html, specificMail.text);
+          const otpCode = extractOtpCode(specificMail.html, specificMail.text, { regexPattern });
           return NextResponse.json({
             success: true,
             code: otpCode,
@@ -177,7 +117,7 @@ export async function POST(request) {
       // Filter by app
       for (const mail of mails) {
         if (matchesApp(mail.from, mail.subject, appId, senderList)) {
-          const otpCode = extractOtpCode(mail.html, mail.text);
+          const otpCode = extractOtpCode(mail.html, mail.text, { regexPattern });
           matchingMails.push({
             id: mail.id || mail._id,
             subject: mail.subject || 'ไม่มีหัวข้อ',
@@ -214,60 +154,24 @@ export async function POST(request) {
           );
         }
 
-        const config = {
-          imap: {
-            user: imapSetting.user,
-            password: imapSetting.password,
-            host: imapSetting.host,
-            port: imapSetting.port,
-            tls: imapSetting.tls,
-            authTimeout: 10000,
-            tlsOptions: { rejectUnauthorized: false }
-          }
-        };
-
         try {
-          const connection = await imaps.connect(config);
-          await connection.openBox('INBOX');
+          const mails = await fetchImapMails(imapSetting, {
+            email: lowerEmail,
+            sinceHours: 3,
+            limit: 5,
+            uid: mailId && /^\d+$/.test(String(mailId)) ? mailId : undefined,
+            filter: mailId ? undefined : ({ from, subject }) => matchesApp(from, subject, appId, senderList),
+          });
 
-          const delay = 3 * 3600 * 1000;
-          const sinceDate = new Date(Date.now() - delay);
-          const searchCriteria = ['ALL', ['SINCE', sinceDate.toISOString()]];
-          const fetchOptions = { bodies: ['HEADER', 'TEXT', ''], struct: true, markSeen: false };
-
-          const messages = await connection.search(searchCriteria, fetchOptions);
-          
-          // Sort messages by UID descending (newest first)
-          messages.sort((a, b) => b.attributes.uid - a.attributes.uid);
-          const limitedMessages = messages.slice(0, 5);
-
-          for (const item of limitedMessages) {
-            const allPart = item.parts.find(part => part.which === '');
-            if (!allPart) continue;
-
-            const id = item.attributes.uid;
-            const idHeader = "Imap-Id: " + id + "\r\n";
-            const mailBuffer = Buffer.concat([Buffer.from(idHeader), Buffer.from(allPart.body)]);
-
-            const parsed = await simpleParser(mailBuffer);
-            const fromLine = parsed.from?.text || '';
-            const subjectLine = parsed.subject || '';
-
-            if (matchesApp(fromLine, subjectLine, appId, senderList)) {
-              const htmlBody = parsed.html || parsed.textAsHtml || parsed.text || '';
-              const otpCode = extractOtpCode(htmlBody, parsed.text || '');
-
-              matchingMails.push({
-                subject: subjectLine,
-                from: fromLine,
-                otp: otpCode,
-                html_body: htmlBody,
-                date: parsed.date || item.attributes.date
-              });
-            }
+          for (const mail of mails) {
+            matchingMails.push({
+              subject: mail.subject,
+              from: mail.from,
+              otp: extractOtpCode(mail.html, mail.text, { regexPattern }),
+              html_body: mail.html,
+              date: mail.date,
+            });
           }
-          connection.end();
-          matchingMails.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         } catch (imapErr) {
           console.error('[IMAP FETCH ERROR]:', imapErr);
