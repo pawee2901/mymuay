@@ -59,10 +59,13 @@ export async function POST(request) {
     if (activeApiKey && activeBranchId) {
       const slipOkFormData = new FormData();
       slipOkFormData.append('files', slipFile);
-      slipOkFormData.append('log', 'true');
+      // log=false: ไม่ให้ SlipOK บันทึกสลิปว่า "ใช้แล้ว" ตั้งแต่ตอนตรวจ
+      // ถ้าเปิด log=true แล้วขั้นตอนหลังจากนี้ล้ม (DB error / timeout / เน็ตหลุด)
+      // ลูกค้าจะส่งสลิปเดิมซ้ำไม่ได้อีกเลย เพราะ SlipOK ตอบ 1012 ทั้งที่ยังไม่ได้เติมเงิน
+      // การกันสลิปซ้ำใช้ตาราง SlipVerification (transRef @unique) ของเราเองแทน
+      slipOkFormData.append('log', 'false');
 
       console.log('Sending to SlipOk URL:', `https://api.slipok.com/api/line/apikey/${activeBranchId}`);
-      console.log('x-authorization value:', JSON.stringify(activeApiKey));
 
       const slipOkResponse = await fetch(`https://api.slipok.com/api/line/apikey/${activeBranchId}`, {
         method: 'POST',
@@ -112,34 +115,44 @@ export async function POST(request) {
       return NextResponse.json({ error: 'สลิปนี้ถูกอัปโหลดเข้าระบบแล้ว' }, { status: 400 });
     }
 
-    // Update user balance, create SlipVerification and DepositTransaction in a single transaction
-    const [updatedUser, newTransaction, newSlipVerification] = await prisma.$transaction([
-      prisma.user.update({
-        where: { id: authUser.userId },
-        data: {
-          balance: {
-            increment: depositAmount
+    // Update user balance, create SlipVerification and DepositTransaction in a single transaction.
+    // SlipVerification ถูกสร้างก่อนเพื่อให้ unique(transRef) กันการส่งพร้อมกัน 2 ครั้ง
+    let updatedUser;
+    try {
+      [, , updatedUser] = await prisma.$transaction([
+        prisma.slipVerification.create({
+          data: {
+            userId: authUser.userId,
+            transRef,
+            amount: depositAmount,
+            sendingBank,
+            senderName,
+            transDatetime
           }
-        }
-      }),
-      prisma.depositTransaction.create({
-        data: {
-          userId: authUser.userId,
-          amount: depositAmount,
-          status: 'COMPLETED'
-        }
-      }),
-      prisma.slipVerification.create({
-        data: {
-          userId: authUser.userId,
-          transRef,
-          amount: depositAmount,
-          sendingBank,
-          senderName,
-          transDatetime
-        }
-      })
-    ]);
+        }),
+        prisma.depositTransaction.create({
+          data: {
+            userId: authUser.userId,
+            amount: depositAmount,
+            status: 'COMPLETED'
+          }
+        }),
+        prisma.user.update({
+          where: { id: authUser.userId },
+          data: {
+            balance: {
+              increment: depositAmount
+            }
+          }
+        })
+      ]);
+    } catch (txError) {
+      // P2002 = unique constraint: transRef นี้ถูกบันทึกไปแล้ว (เช่น กดส่งซ้ำพร้อมกัน)
+      if (txError?.code === 'P2002') {
+        return NextResponse.json({ error: 'สลิปนี้ถูกอัปโหลดเข้าระบบแล้ว' }, { status: 400 });
+      }
+      throw txError;
+    }
 
     console.log(`[DEPOSIT SUCCESS]: ผู้ใช้ ${updatedUser.username} เติมเงินด้วยสลิปยอด ${depositAmount} บาทสำเร็จ ยอดใหม่คือ ${updatedUser.balance} บาท`);
 

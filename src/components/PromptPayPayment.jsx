@@ -25,6 +25,7 @@ function loadSettings() {
  */
 export default function PromptPayPayment({ amount, onPaid }) {
   const fileRef = useRef(null);
+  const submittingRef = useRef(false); // กันกดส่งสลิปซ้ำเร็วๆ ก่อน state อัปเดต
   const [settings, setSettings] = useState(null);
   const [qr, setQr] = useState({ payload: '', url: '' });
   const [slip, setSlip] = useState(null);
@@ -63,6 +64,8 @@ export default function PromptPayPayment({ amount, onPaid }) {
       fileRef.current?.click();
       return;
     }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setStatus('uploading');
     setMessage('');
     try {
@@ -78,6 +81,8 @@ export default function PromptPayPayment({ amount, onPaid }) {
     } catch (error) {
       setStatus('error');
       setMessage(error.message);
+    } finally {
+      submittingRef.current = false;
     }
   };
 
